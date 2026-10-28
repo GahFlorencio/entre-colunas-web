@@ -6,7 +6,7 @@ export type PeriodReportLine = Omit<
 > & {
   key: string;
   expense_id: string | null;
-  type: "rateio" | "individual" | "acrescimo";
+  type: "rateio" | "individual" | "geral" | "acrescimo";
   installment_number: number | null;
 };
 

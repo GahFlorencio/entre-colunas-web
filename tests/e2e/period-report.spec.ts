@@ -9,6 +9,7 @@ async function setup(
     long?: boolean;
     empty?: boolean;
     stressIndividual?: boolean;
+    general?: boolean;
   } = {},
 ) {
   await page.addInitScript(() =>
@@ -68,6 +69,23 @@ async function setup(
             }
           : e,
       );
+    if (options.general)
+      expenses = [
+        ...expenses,
+        {
+          ...periodReport.expenses[0]!,
+          expense_id: "99",
+          description: "Despesa geral da loja",
+          type: "geral",
+          installment_number: 1,
+          installments_count: 1,
+          total_value: 30,
+          value: 30,
+          allocated_value: 0,
+          divisor: 0,
+          allocation: "Não cobrada dos membros",
+        },
+      ];
     const report = {
       ...periodReport,
       status: options.closed ? "closed" : "open",
@@ -371,5 +389,27 @@ for (const width of [320, 390, 1440]) {
         fullPage: true,
       });
     }
+  });
+}
+
+for (const closed of [false, true]) {
+  test(`general expenses have zero member charge (${closed ? "closed" : "open"})`, async ({
+    page,
+  }, info) => {
+    await setup(page, { closed, general: true });
+    await page.getByRole("tab", { name: "Extrato", exact: true }).click();
+    const row = page
+      .getByRole("row")
+      .filter({ hasText: "Despesa geral da loja" });
+    await expect(row).toContainText("Geral");
+    await expect(row).toContainText("30,00");
+    await expect(row.locator(".allocated-amount")).toContainText("0,00");
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Exportar PDF" }).click();
+    await (
+      await download
+    ).saveAs(
+      `/tmp/period-general-${closed ? "closed" : "open"}-${info.project.name}.pdf`,
+    );
   });
 }

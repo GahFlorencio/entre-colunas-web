@@ -289,7 +289,11 @@ async function exportPdf() {
                             { individual: e.type === 'individual' },
                           ]"
                           >{{
-                            e.type === "individual" ? "Individual" : "Rateio"
+                            e.type === "individual"
+                              ? "Individual"
+                              : e.type === "rateio"
+                                ? "Rateio"
+                                : "Geral"
                           }}</span
                         >
                         <span class="expense-category" :title="e.category">{{
@@ -332,7 +336,7 @@ async function exportPdf() {
                       e.allocated_value === null
                         ? "—"
                         : money(e.allocated_value)
-                    }}<span class="recipient-count"
+                    }}<span v-if="e.type !== 'geral'" class="recipient-count"
                       >{{ e.divisor }}
                       {{ e.divisor === 1 ? "membro" : "membros" }}</span
                     >

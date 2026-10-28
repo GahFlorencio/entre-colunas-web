@@ -113,7 +113,7 @@ export type PeriodReportExpense = {
   expense_id: string;
   description: string;
   category: string;
-  type: "rateio" | "individual";
+  type: "rateio" | "individual" | "geral";
   installment_number: number;
   installments_count: number;
   value: number;

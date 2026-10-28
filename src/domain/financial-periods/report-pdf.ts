@@ -199,7 +199,7 @@ export function buildPeriodReportPdf(
     body: statementLines.length
       ? statementLines.map((line) => [
           line.description,
-          `${line.type === "individual" ? "Individual" : line.type === "acrescimo" ? "Acréscimo" : "Rateio"}\n${line.type === "individual" ? "Responsável" : line.allocation}`,
+          `${line.type === "individual" ? "Individual" : line.type === "acrescimo" ? "Acréscimo" : line.type === "rateio" ? "Rateio" : "Geral"}\n${line.type === "individual" ? "Responsável" : line.allocation}`,
           line.installment_number === null
             ? "Única"
             : `${line.installment_number}/${line.installments_count}`,
@@ -207,7 +207,9 @@ export function buildPeriodReportPdf(
           currency(line.value),
           line.allocated_value === null
             ? "Sem destinatários"
-            : `${currency(line.allocated_value)}\n${line.divisor} ${line.divisor === 1 ? "membro" : "membros"}`,
+            : line.type === "geral"
+              ? currency(0)
+              : `${currency(line.allocated_value)}\n${line.divisor} ${line.divisor === 1 ? "membro" : "membros"}`,
         ])
       : [[{ content: "Nenhuma despesa neste período.", colSpan: 6 }]],
     foot: [
