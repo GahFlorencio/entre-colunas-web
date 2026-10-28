@@ -181,6 +181,9 @@ function changeLodge(event: Event) {
         >
       </nav>
       <div class="sidebar-bottom">
+        <RouterLink v-if="user.is_admin" to="/admin" @click="menu = false"
+          ><Settings2 aria-hidden="true" :size="20" /> Administração</RouterLink
+        >
         <RouterLink to="/configuracoes" @click="menu = false"
           ><Settings2 aria-hidden="true" :size="20" /> Configurações</RouterLink
         ><button v-if="!installed" @click="install">
@@ -267,7 +270,10 @@ function changeLodge(event: Event) {
         <p v-if="pendingSuccess" class="success-message" role="status">
           {{ pendingSuccess }}
         </p>
-        <RouterView v-if="lodgeId" :key="contextKey + ':' + route.path" />
+        <RouterView
+          v-if="lodgeId || (user.is_admin && route.path === '/admin')"
+          :key="contextKey + ':' + route.path"
+        />
         <div v-else class="state">
           <h1>Nenhuma loja vinculada</h1>
           <p>Solicite ao administrador que vincule uma loja à sua conta.</p>

@@ -12,6 +12,7 @@ export type Lodge = {
   masonic_authority: MasonicAuthority;
 };
 export type UserProfile = {
+  is_admin: boolean;
   id: string;
   name: string;
   email: string;

@@ -5,6 +5,7 @@ import { message } from "./format";
 export function useQuery<T>(
   fetcher: () => Promise<T>,
   dependencies: () => unknown = () => [],
+  options: { requiresLodge?: boolean } = {},
 ) {
   const data = shallowRef<T | null>(null),
     error = ref(""),
@@ -27,7 +28,8 @@ export function useQuery<T>(
   watch(
     () => [token.value, lodgeId.value, writeVersion.value, dependencies()],
     () => {
-      if (token.value && lodgeId.value) void refresh();
+      if (token.value && (options.requiresLodge === false || lodgeId.value))
+        void refresh();
       else {
         generation++;
         data.value = null;

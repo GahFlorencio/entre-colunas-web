@@ -1,8 +1,13 @@
 import { createRouter, createWebHistory } from "vue-router";
-import { checkExpiry, token } from "./lib/session";
+import { checkExpiry, token, user } from "./lib/session";
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
+    {
+      path: "/admin",
+      component: () => import("./views/AdminView.vue"),
+      meta: { title: "Administração", admin: true },
+    },
     {
       path: "/login",
       component: () => import("./views/LoginView.vue"),
@@ -74,7 +79,16 @@ export const router = createRouter({
 router.beforeEach((to) => {
   checkExpiry();
   if (!token.value && to.path !== "/login") return "/login";
-  if (token.value && to.path === "/login") return "/";
+  if (to.meta.admin && !user.value?.is_admin) return "/";
+  if (token.value && to.path === "/login")
+    return user.value?.is_admin && !user.value.lodges.length ? "/admin" : "/";
+  if (
+    token.value &&
+    user.value?.is_admin &&
+    !user.value.lodges.length &&
+    to.path === "/"
+  )
+    return "/admin";
 });
 router.afterEach((to) => {
   document.title = `${String(to.meta.title)} · Entre Colunas`;
