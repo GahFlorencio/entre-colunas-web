@@ -11,6 +11,7 @@ import {
   updateExpenseCategory,
 } from "@/domain/expenses/api";
 import type { ExpenseCategory } from "@/domain/expenses/types";
+import ChangePasswordForm from "@/components/ChangePasswordForm.vue";
 import Modal from "@/components/Modal.vue";
 import QueryState from "@/components/QueryState.vue";
 import Pagination from "@/components/Pagination.vue";
@@ -177,6 +178,7 @@ async function addCategory() {
       </div>
     </section>
   </div>
+  <ChangePasswordForm />
   <section class="section">
     <div class="section-head"><h2>Categorias de despesas</h2></div>
     <form class="section-body" @submit.prevent="addCategory">

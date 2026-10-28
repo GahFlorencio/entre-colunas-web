@@ -100,7 +100,9 @@ async function request<T>(
       throw new ApiError(
         credentials
           ? "Email ou senha incorretos. Confira os dados e tente novamente."
-          : "Confira os dados informados e tente novamente.",
+          : typeof body?.message === "string"
+            ? body.message
+            : "Confira os dados informados e tente novamente.",
         400,
         credentials ? "credentials" : "validation",
         details,
@@ -138,6 +140,25 @@ export function getMe(token: string): Promise<MeResponse> {
   return request<MeResponse>(
     "/me",
     { headers: { Authorization: `Bearer ${token}` } },
+    token,
+  );
+}
+
+export function changePassword(
+  token: string,
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  return request<void>(
+    "/me/password",
+    {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password: newPassword,
+      }),
+    },
     token,
   );
 }
