@@ -91,6 +91,7 @@ async function close() {
         v-model:addition="addition"
         :period-id="id"
         :sequence="query.data.value.sequence"
+        :details="query.data.value"
         :status="query.data.value.status"
       >
         <template #actions>

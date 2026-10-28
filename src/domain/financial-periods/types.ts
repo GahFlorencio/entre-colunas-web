@@ -139,3 +139,11 @@ export type PeriodReport = {
   impediments: string[];
   differences: FinancialPeriodDifference[];
 };
+
+export type PeriodReportMetadata = Pick<
+  FinancialPeriodDetail,
+  | "captured_members"
+  | "closing_contribution_value"
+  | "closing_agape_value"
+  | "statements_count"
+>;

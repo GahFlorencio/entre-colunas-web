@@ -1,166 +1,225 @@
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
 import { periodReportLines, periodReportStatementTotal } from "./report-lines";
-import type { PeriodReport } from "./types";
-const currency = (n: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
-    .format(n)
-    .replace(/\u00a0/g, " ");
-const date = (s: string) => new Date(s).toLocaleDateString("pt-BR");
+import type { PeriodReport, PeriodReportMetadata } from "./types";
 
-/** Vector text and tables keep the report searchable and paginate long expense lists. */
-export function buildPeriodReportPdf(report: PeriodReport, lodgeName: string) {
+const currency = (value: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
+    .format(value)
+    .replace(/\u00a0/g, " ");
+const date = (value: string) => new Date(value).toLocaleDateString("pt-BR");
+const navy: [number, number, number] = [1, 23, 51];
+const gold: [number, number, number] = [151, 112, 31];
+const pale: [number, number, number] = [246, 247, 249];
+const border: [number, number, number] = [225, 228, 232];
+
+/** Print-oriented accounting layout; shares the financial data and lines with the screen. */
+export function buildPeriodReportPdf(
+  report: PeriodReport,
+  lodgeName: string,
+  details: PeriodReportMetadata,
+) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const navy: [number, number, number] = [1, 23, 51],
-    gold: [number, number, number] = [151, 112, 31];
-  const width = 178,
-    margin = 16;
+  const margin = 16,
+    width = 178,
+    right = margin + width;
   doc.setProperties({
-    title: `Período ${report.sequence} - Relatório de cobranças`,
+    title: `Prestação de contas - Período ${report.sequence}`,
     subject: lodgeName,
     author: "Entre Colunas",
   });
   doc
-    .setTextColor(...gold)
-    .setFontSize(9)
-    .setFont("helvetica", "bold");
-  doc.text("ENTRE COLUNAS / RELATÓRIO FINANCEIRO", margin, 18);
-  doc.setTextColor(...navy).setFontSize(21);
-  doc.text(`Período ${report.sequence}`, margin, 30);
-  doc.setFontSize(11).setFont("helvetica", "normal");
-  const lodgeLines = doc.splitTextToSize(lodgeName, width);
-  doc.text(lodgeLines, margin, 38);
-  let y = 38 + lodgeLines.length * 5;
-  doc.setFontSize(9).setTextColor(80);
-  doc.text(
-    `${report.status === "open" ? "Aberto - prévia de cobranças" : "Fechado - cobranças consolidadas"} | Abertura: ${date(report.opened_at)}${report.closed_at ? ` | Fechamento: ${date(report.closed_at)}` : ""}`,
-    margin,
-    y + 3,
-  );
+    .setFont("helvetica", "bold")
+    .setFontSize(8)
+    .setTextColor(...gold);
+  doc.text("ENTRE COLUNAS", margin, 15);
+  doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(100);
   doc.text(
     `Emitido em ${new Date(report.generated_at).toLocaleString("pt-BR")}`,
-    margin,
-    y + 9,
+    right,
+    15,
+    { align: "right" },
   );
-  y += 18;
-  const cardWidth = (width - 8) / 3;
-  report.groups.forEach((group, index) => {
-    const x = margin + index * (cardWidth + 4);
-    doc.setFillColor(248, 247, 242).setDrawColor(218, 221, 225);
-    doc.roundedRect(x, y, cardWidth, 47, 2, 2, "FD");
-    doc
-      .setTextColor(...navy)
-      .setFontSize(10)
-      .setFont("helvetica", "bold");
-    doc.text(group.label, x + 4, y + 8);
-    doc.setFontSize(9).setFont("helvetica", "normal");
-    doc.text(`${group.member_count} membro(s)`, x + 4, y + 15);
-    doc.setFontSize(15).setFont("helvetica", "bold");
-    const amount =
-      group.min_charge === group.max_charge
-        ? currency(group.min_charge)
-        : `${currency(group.min_charge)} a ${currency(group.max_charge)}`;
-    if (doc.getTextWidth(amount) > cardWidth - 8) doc.setFontSize(10);
-    doc.text(doc.splitTextToSize(amount, cardWidth - 8), x + 4, y + 23);
-    doc.setFontSize(8).setFont("helvetica", "normal").setTextColor(80);
-    doc.text(
-      group.key !== "away" && report.acrescimo
-        ? "Por membro, com acréscimo"
-        : "Por membro, já rateado",
-      x + 4,
-      y + 33,
-    );
-    doc.text(
-      doc.splitTextToSize(
-        `Total do grupo: ${currency(group.total_charges)}`,
-        cardWidth - 8,
-      ),
-      x + 4,
-      y + 40,
-    );
-  });
-  y += 55;
   doc
-    .setTextColor(...navy)
-    .setFontSize(11)
-    .setFont("helvetica", "bold");
+    .setFont("helvetica", "bold")
+    .setFontSize(18)
+    .setTextColor(...navy);
+  doc.text("Prestação de contas", margin, 25);
+  doc.setFontSize(8).setTextColor(...gold);
+  doc.text(report.status === "closed" ? "FECHADO" : "PRÉVIA", right, 24, {
+    align: "right",
+  });
+  doc
+    .setFont("helvetica", "normal")
+    .setFontSize(9.5)
+    .setTextColor(...navy);
+  const lodgeLines: string[] = doc.splitTextToSize(lodgeName, width);
+  doc.text(lodgeLines, margin, 32);
+  let y = 32 + lodgeLines.length * 4.2;
+  doc.setFontSize(8).setTextColor(85);
   doc.text(
-    `Total de novas cobranças: ${currency(report.total_charges)}`,
+    `Período ${report.sequence} · ${date(report.opened_at)}${report.closed_at ? ` a ${date(report.closed_at)}` : " · em andamento"} · Despesas e cobranças`,
     margin,
-    y,
+    y + 1,
   );
-  y += 7;
-  doc.setFontSize(9).setFont("helvetica", "normal").setTextColor(80);
-  const notes = [
-    report.status === "open"
-      ? `Prévia com acréscimo de ${currency(report.acrescimo)} por ativo, já incluído nos valores. Valores podem mudar até o fechamento.`
-      : `Valores gravados no fechamento. Acréscimo por ativo: ${currency(report.acrescimo)}.`,
-    "As cobranças incluem contribuição, ágape, rateios e despesas individuais aplicáveis. Não incluem saldos anteriores, pagamentos ou ajustes já lançados.",
-    "Contagens e grupos seguem o quadro capturado na abertura. O extrato contém despesas de rateio, individuais e o acréscimo por ativo quando houver.",
-    ...(report.other_members_count
+  y += 5;
+  doc
+    .setDrawColor(...border)
+    .setLineWidth(0.25)
+    .line(margin, y, right, y);
+  y += 5;
+  const metadata = [
+    `${details.captured_members} ${details.captured_members === 1 ? "membro" : "membros"}`,
+    ...(report.status === "closed"
       ? [
-          `Fora dos três grupos: ${report.other_members_count} membro(s), total de novas cobranças ${currency(report.other_charges)}.`,
-        ]
-      : []),
-    ...(report.impediments.length
-      ? [`PRÉVIA COM IMPEDIMENTOS: ${report.impediments.join(" ")}`]
-      : []),
-    ...(report.differences.length
-      ? [
-          `Diferenças de rateio: ${currency(report.differences.reduce((sum, d) => sum + Math.round(d.value * 100), 0) / 100)}.`,
+          `${details.statements_count} ${details.statements_count === 1 ? "demonstrativo" : "demonstrativos"}`,
         ]
       : []),
   ];
-  for (const note of notes) {
-    const lines = doc.splitTextToSize(note, width);
-    for (const line of lines) {
-      if (y > 267) {
+  doc.setFontSize(8).text(metadata.join(" · "), margin, y);
+  const amounts = [
+    ...(report.status === "closed" &&
+    details.closing_contribution_value !== null
+      ? [`Contribuição: ${currency(details.closing_contribution_value)}`]
+      : []),
+    ...(report.status === "closed" && details.closing_agape_value !== null
+      ? [`Ágape: ${currency(details.closing_agape_value)}`]
+      : []),
+    ...(report.acrescimo
+      ? [`Acréscimo: ${currency(report.acrescimo)} / ativo`]
+      : []),
+  ];
+  if (amounts.length) {
+    const lines: string[] = doc.splitTextToSize(amounts.join(" · "), width);
+    doc.text(lines, margin, y + 4);
+    y += lines.length * 4;
+  }
+  y += 8;
+  function heading(number: string, title: string, top: number) {
+    doc
+      .setFont("helvetica", "bold")
+      .setFontSize(8)
+      .setTextColor(...gold);
+    doc.text(number, margin, top);
+    doc.setFontSize(10).setTextColor(...navy);
+    doc.text(title, margin + 7, top);
+  }
+  heading("01", "Cobranças por perfil", y);
+  let summaryEnd = y + 5;
+  const summary = report.groups.map((group) => [
+    group.label,
+    String(group.member_count),
+    !group.member_count
+      ? "-"
+      : group.min_charge === group.max_charge
+        ? currency(group.min_charge)
+        : `${currency(group.min_charge)} a ${currency(group.max_charge)}`,
+    currency(group.total_charges),
+  ]);
+  if (report.other_members_count)
+    summary.push([
+      "Outros membros",
+      String(report.other_members_count),
+      "-",
+      currency(report.other_charges),
+    ]);
+  autoTable(doc, {
+    startY: y + 4,
+    margin: { left: margin, right: margin, top: 23, bottom: 18 },
+    head: [["Perfil", "Membros", "Por membro", "Total do grupo"]],
+    body: summary,
+    foot: [
+      [
+        { content: "Total a cobrar", colSpan: 3 },
+        currency(report.total_charges),
+      ],
+    ],
+    showFoot: "lastPage",
+    rowPageBreak: "avoid",
+    styles: {
+      font: "helvetica",
+      fontSize: 9,
+      cellPadding: 2,
+      textColor: navy,
+      lineColor: border,
+    },
+    headStyles: { fillColor: pale, textColor: navy, fontSize: 8 },
+    footStyles: { fillColor: navy, textColor: [255, 255, 255], fontSize: 9 },
+    alternateRowStyles: { fillColor: [255, 255, 255] },
+    columnStyles: {
+      0: { cellWidth: 65 },
+      1: { cellWidth: 20, halign: "center" },
+      2: { cellWidth: 51, halign: "right" },
+      3: { cellWidth: 42, halign: "right" },
+    },
+    didDrawPage: (data) => {
+      if (data.cursor) summaryEnd = data.cursor.y;
+    },
+  });
+  y = summaryEnd + 8;
+  if (report.impediments.length) {
+    doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(155, 45, 35);
+    for (const line of doc.splitTextToSize(
+      `Pendências: ${report.impediments.join(" ")}`,
+      width,
+    ) as string[]) {
+      if (y > 263) {
         doc.addPage();
-        y = 22;
+        y = 26;
       }
       doc.text(line, margin, y);
       y += 4;
     }
-    y += 2;
+    y += 4;
   }
-  if (y > 235) {
+  if (y > 245) {
     doc.addPage();
-    y = 22;
+    y = 27;
   }
-  doc
-    .setTextColor(...navy)
-    .setFontSize(12)
-    .setFont("helvetica", "bold");
-  doc.text("Extrato de despesas do período", margin, y + 3);
+  heading("02", "Extrato de despesas", y);
   const statementLines = periodReportLines(report);
+  const difference =
+    report.differences.reduce(
+      (sum, item) => sum + Math.round(item.value * 100),
+      0,
+    ) / 100;
   autoTable(doc, {
-    startY: y + 8,
-    margin: { left: margin, right: margin, top: 18, bottom: 18 },
+    startY: y + 4,
+    margin: { left: margin, right: margin, top: 23, bottom: 18 },
     head: [
       [
-        "Despesa / categoria",
-        "Tipo / destinatários",
+        "Descrição",
+        "Tipo / destino",
         "Parcela",
-        "Valor total",
-        "No ciclo",
+        "Total despesa",
+        "No período",
         "Por membro",
       ],
     ],
     body: statementLines.length
-      ? statementLines.map((e) => [
-          `${e.description}\n${e.category}`,
-          `${e.type === "acrescimo" ? "Acréscimo" : e.type === "individual" ? "Individual" : "Rateio"}\n${e.allocation}`,
-          e.installment_number === null
+      ? statementLines.map((line) => [
+          line.description,
+          `${line.type === "individual" ? "Individual" : line.type === "acrescimo" ? "Acréscimo" : "Rateio"}\n${line.type === "individual" ? "Responsável" : line.allocation}`,
+          line.installment_number === null
             ? "Única"
-            : `${e.installment_number}/${e.installments_count}`,
-          currency(e.total_value),
-          currency(e.value),
-          e.allocated_value === null
+            : `${line.installment_number}/${line.installments_count}`,
+          currency(line.total_value),
+          currency(line.value),
+          line.allocated_value === null
             ? "Sem destinatários"
-            : `${currency(e.allocated_value)}\n${e.divisor} membro(s)`,
+            : `${currency(line.allocated_value)}\n${line.divisor} ${line.divisor === 1 ? "membro" : "membros"}`,
         ])
       : [[{ content: "Nenhuma despesa neste período.", colSpan: 6 }]],
     foot: [
+      ...(difference
+        ? [
+            [
+              { content: "Diferença de rateio (não cobrada)", colSpan: 4 },
+              currency(difference),
+              "-",
+            ],
+          ]
+        : []),
       [
         { content: "Total do extrato", colSpan: 4 },
         currency(periodReportStatementTotal(report)),
@@ -171,37 +230,71 @@ export function buildPeriodReportPdf(report: PeriodReport, lodgeName: string) {
     rowPageBreak: "avoid",
     styles: {
       font: "helvetica",
-      fontSize: 9,
-      cellPadding: 3,
+      fontSize: 8.5,
+      cellPadding: 1.8,
       textColor: navy,
-      lineColor: [225, 228, 232],
+      lineColor: border,
+      overflow: "linebreak",
     },
-    headStyles: { fillColor: navy, textColor: [255, 255, 255] },
-    footStyles: { fillColor: [248, 247, 242], textColor: navy },
+    headStyles: {
+      fillColor: navy,
+      textColor: [255, 255, 255],
+      fontSize: 8,
+      cellPadding: 2,
+    },
+    footStyles: { fillColor: pale, textColor: navy, cellPadding: 2 },
+    alternateRowStyles: { fillColor: [249, 250, 251] },
     columnStyles: {
-      0: { cellWidth: 48 },
-      1: { cellWidth: 36 },
-      2: { cellWidth: 18 },
-      3: { cellWidth: 25, halign: "right" },
-      4: { cellWidth: 25, halign: "right" },
+      0: { cellWidth: 60 },
+      1: { cellWidth: 31 },
+      2: { cellWidth: 15 },
+      3: { cellWidth: 23, halign: "right" },
+      4: { cellWidth: 23, halign: "right" },
       5: { cellWidth: 26, halign: "right" },
     },
+    didParseCell: (data) => {
+      if (data.section === "foot" && difference && data.row.index === 0) {
+        data.cell.styles.fontStyle = "normal";
+        data.cell.styles.fontSize = 7.5;
+        data.cell.styles.textColor = [95, 95, 95];
+        data.cell.styles.fillColor = [255, 255, 255];
+      }
+      if (
+        data.section === "body" &&
+        statementLines[data.row.index]?.type === "acrescimo"
+      )
+        data.cell.styles.fillColor = [245, 237, 219];
+    },
   });
-  for (let page = 1; page <= doc.getNumberOfPages(); page++) {
-    doc
-      .setPage(page)
-      .setFont("helvetica", "normal")
-      .setFontSize(8)
-      .setTextColor(100);
-    doc.text("Entre Colunas - Relatório do período", margin, 287);
-    doc.text(`${page} / ${doc.getNumberOfPages()}`, 194, 287, {
-      align: "right",
-    });
+  const pages = doc.getNumberOfPages();
+  for (let page = 1; page <= pages; page++) {
+    doc.setPage(page);
+    if (page > 1) {
+      doc
+        .setFont("helvetica", "bold")
+        .setFontSize(8)
+        .setTextColor(...navy);
+      doc.text(`Prestação de contas · Período ${report.sequence}`, margin, 14);
+      doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(100);
+      doc.text("Extrato de despesas · continuação", right, 14, {
+        align: "right",
+      });
+      doc.setDrawColor(...border).line(margin, 18, right, 18);
+    }
+    doc.setDrawColor(...border).line(margin, 281, right, 281);
+    doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(100);
+    doc.text(`Entre Colunas · Período ${report.sequence}`, margin, 286);
+    doc.text(`${page} / ${pages}`, right, 286, { align: "right" });
   }
   return doc;
 }
-export function downloadPeriodReport(report: PeriodReport, lodgeName: string) {
-  buildPeriodReportPdf(report, lodgeName).save(
+
+export function downloadPeriodReport(
+  report: PeriodReport,
+  lodgeName: string,
+  details: PeriodReportMetadata,
+) {
+  buildPeriodReportPdf(report, lodgeName, details).save(
     `periodo-${report.sequence}-${report.status === "open" ? "previa" : "fechado"}.pdf`,
   );
 }

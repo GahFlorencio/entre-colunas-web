@@ -9,10 +9,12 @@ import { getPeriodReport } from "@/domain/financial-periods/api";
 import { token, lodgeId, lodge } from "@/lib/session";
 import { money, message } from "@/lib/format";
 import { useQuery } from "@/lib/query";
+import type { PeriodReportMetadata } from "@/domain/financial-periods/types";
 import QueryState from "@/components/QueryState.vue";
 const props = defineProps<{
   periodId: string;
   sequence: number;
+  details: PeriodReportMetadata;
   status: "open" | "closed";
 }>();
 const addition = defineModel<string | number>("addition", { default: "0" });
@@ -77,6 +79,7 @@ async function exportPdf() {
     downloadPeriodReport(
       report.data.value,
       `${lodge.value?.label ?? "Loja"} · Nº ${lodge.value?.number ?? ""}`,
+      props.details,
     );
   } catch (e) {
     exportError.value = message(e);
@@ -278,12 +281,26 @@ async function exportPdf() {
                       v-if="e.expense_id"
                       :to="`/despesas/${e.expense_id}`"
                       class="expense-name"
-                      ><span>{{ e.description }}</span
-                      ><span class="expense-context"
-                        >{{ e.category }} · {{ e.installment_number }}/{{
-                          e.installments_count
-                        }}</span
-                      ></RouterLink
+                      ><span class="expense-title">{{ e.description }}</span>
+                      <span class="expense-context">
+                        <span
+                          :class="[
+                            'expense-kind',
+                            { individual: e.type === 'individual' },
+                          ]"
+                          >{{
+                            e.type === "individual" ? "Individual" : "Rateio"
+                          }}</span
+                        >
+                        <span class="expense-category" :title="e.category">{{
+                          e.category
+                        }}</span>
+                        <span class="expense-installment"
+                          >{{ e.installment_number }}/{{
+                            e.installments_count
+                          }}</span
+                        >
+                      </span></RouterLink
                     >
                     <template v-else
                       ><span class="expense-name"
@@ -544,6 +561,7 @@ async function exportPdf() {
 }
 table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 13px;
   text-align: left;
@@ -572,6 +590,8 @@ tbody td {
 }
 .expense-name {
   display: block;
+  min-width: 0;
+  max-width: 100%;
   font-size: 13px;
   font-weight: 600;
   line-height: 1.4;
@@ -584,11 +604,47 @@ a.expense-name {
   gap: 3px;
   min-height: 44px;
 }
+.expense-title {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .expense-context {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   font-weight: 400;
   color: var(--muted);
   font-size: 11px;
   line-height: 1.4;
+}
+.expense-kind {
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 10px;
+  color: var(--text);
+  white-space: nowrap;
+}
+.expense-kind.individual {
+  background: var(--gold-bg);
+  border-color: transparent;
+}
+.expense-category {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.expense-installment {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .expense-recipients,
 .expense-parcel {
@@ -696,7 +752,20 @@ tfoot td:last-child {
   tbody tr {
     display: table-row;
   }
+  thead th:first-child {
+    width: 30%;
+  }
+  thead th:nth-child(2) {
+    width: 17%;
+  }
+  thead th:nth-child(3) {
+    width: 8%;
+  }
+  thead th:nth-child(n + 4) {
+    width: 15%;
+  }
   tbody td {
+    vertical-align: top;
     padding: 12px;
     border-bottom: 1px solid var(--border);
   }
@@ -708,9 +777,6 @@ tfoot td:last-child {
   .expense-parcel {
     display: table-cell;
     font-size: 12px;
-  }
-  .expense-context {
-    display: block;
   }
   .same-total .cycle-amount {
     display: table-cell;

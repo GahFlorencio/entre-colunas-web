@@ -8,6 +8,7 @@ async function setup(
     failed?: boolean;
     long?: boolean;
     empty?: boolean;
+    stressIndividual?: boolean;
   } = {},
 ) {
   await page.addInitScript(() =>
@@ -45,7 +46,7 @@ async function setup(
     const addition = options.closed
       ? 5
       : Number(url.searchParams.get("acrescimo") || 0);
-    const expenses = options.empty
+    let expenses = options.empty
       ? []
       : options.long
         ? Array.from({ length: 75 }, (_, i) => ({
@@ -54,6 +55,19 @@ async function setup(
             description: `Despesa ${i + 1} - Manutenção e conservação das instalações`,
           }))
         : periodReport.expenses;
+    if (options.stressIndividual)
+      expenses = expenses.map((e) =>
+        e.type === "individual"
+          ? {
+              ...e,
+              description:
+                "Compra individual de materiais para cerimônia e atividades do membro no período",
+              category: "CategoriaIndividualSemEspacos".repeat(5),
+              total_value: 22.5,
+              installments_count: 3,
+            }
+          : e,
+      );
     const report = {
       ...periodReport,
       status: options.closed ? "closed" : "open",
@@ -140,6 +154,17 @@ for (const closed of [false, true]) {
       .filter({ hasText: "Manutenção do templo" });
     for (const value of [/300,00/, /100,00/, /33,33/])
       await expect(expense).toContainText(value);
+    const individual = region
+      .getByRole("row")
+      .filter({ hasText: "Material individual" });
+    await expect(individual.locator(".expense-context")).toContainText(
+      "Individual",
+    );
+    await expect(individual).toContainText(/7,50/);
+    await expect(individual.getByRole("link")).toHaveAttribute(
+      "href",
+      "/despesas/12",
+    );
     await expect(
       page.getByText("Despesa geral da loja", { exact: true }),
     ).toHaveCount(0);
@@ -308,3 +333,43 @@ test("period tabs support keyboard navigation and preserve the increment", async
     page.getByRole("button", { name: "Exportar PDF" }),
   ).toBeEnabled();
 });
+
+for (const width of [320, 390, 1440]) {
+  test(`individual expense stays aligned with long descriptions at ${width}px`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    await setup(page, { closed: true, stressIndividual: true });
+    await page.getByRole("tab", { name: "Extrato", exact: true }).click();
+    const region = page.getByRole("region", { name: "Despesas do período" });
+    const row = region
+      .getByRole("row")
+      .filter({ hasText: "Compra individual de materiais" });
+    await expect(row.locator(".expense-kind")).toHaveText("Individual");
+    await expect(row).toContainText(/22,50/);
+    await expect(row).toContainText(/7,50/);
+    for (const theme of ["light", "dark"]) {
+      if (theme === "dark")
+        await page
+          .getByRole("button", { name: "Ativar tema escuro", exact: true })
+          .click();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      expect(
+        await region.evaluate((el) => el.scrollWidth <= el.clientWidth),
+      ).toBe(true);
+      expect(
+        await row
+          .locator(".expense-context")
+          .evaluate((el) => el.scrollWidth <= el.clientWidth),
+      ).toBe(true);
+      await page.screenshot({
+        path: `/tmp/individual-layout-${width}-${theme}-${info.project.name}.png`,
+        fullPage: true,
+      });
+    }
+  });
+}

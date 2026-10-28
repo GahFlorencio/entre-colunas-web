@@ -121,3 +121,5 @@ Requer a versão da API com `GET /lodge/:lodgeId/financial/periods/:periodId/rep
 Cada despesa no extrato do período informa seu valor total, o valor da parcela no ciclo e o valor por membro (com o divisor usado), tanto na tela quanto no PDF. O rateio considera os destinatários do quadro capturado e trunca a divisão em centavos, como no fechamento; despesas individuais têm divisor 1. Sem destinatários elegíveis, o valor por membro fica indisponível.
 
 Quando houver acréscimo por ativo, o extrato e o PDF apresentam uma linha própria com o valor por membro, a quantidade de ativos e o valor total. O rodapé **Total do extrato** soma parcelas de rateio, individuais e esse acréscimo; os valores dos cards já incluem o acréscimo e não são recalculados por essa linha.
+
+O PDF usa um formato de prestação de contas para impressão: cabeçalho e dados do período em poucas linhas, tabela de cobranças por perfil e extrato detalhado com totais. Os valores exportados usam os mesmos dados da Visão Geral e do Extrato. Relatórios longos repetem o cabeçalho da tabela e exibem numeração de páginas.
