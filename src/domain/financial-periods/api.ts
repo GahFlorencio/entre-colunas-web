@@ -248,3 +248,30 @@ export function closeFinancialPeriod(
     },
   );
 }
+
+export function getPeriodReport(
+  token: string,
+  lodgeId: string,
+  periodId: string,
+  acrescimo?: number,
+): Promise<import("./types").PeriodReport> {
+  requireIds(periodId);
+  if (
+    acrescimo !== undefined &&
+    (!Number.isFinite(acrescimo) ||
+      acrescimo < 0 ||
+      Math.round(acrescimo * 100) / 100 !== acrescimo)
+  )
+    throw new ApiError(
+      "Informe um acréscimo válido, a partir de zero e com até duas casas decimais.",
+      400,
+      "validation",
+    );
+  return request(
+    token,
+    lodgePath(
+      lodgeId,
+      `/financial/periods/${encodeURIComponent(periodId)}/report${acrescimo === undefined ? "" : `?acrescimo=${encodeURIComponent(acrescimo)}`}`,
+    ),
+  );
+}

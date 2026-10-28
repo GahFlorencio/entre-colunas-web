@@ -107,3 +107,17 @@ O `.env` fica fora da imagem por meio do `.dockerignore`. O Docker lê o arquivo
 com `--env-file`; no Dokploy, as mesmas variáveis são fornecidas pelo painel.
 O arquivo público `runtime-config.js` é gerado na inicialização e fica fora do
 cache do service worker.
+
+### Acompanhamento e relatório do período
+
+Em **Períodos > Acompanhar período**, a visão geral apresenta três cards de cobrança e contagem: ativos com ágape, ativos sem ágape e afastados. A classificação usa o quadro capturado na abertura. Os cards destacam o valor por membro já rateado, com o acréscimo incluído para os ativos; o total do grupo aparece como informação secundária. Quando há despesas individuais diferentes, o destaque mostra a faixa de cobrança por membro.
+
+O extrato inclui somente as parcelas de rateio e individuais programadas (período aberto) ou lançadas (fechado) no ciclo, inclusive de despesas cadastradas antes. O quadro de membros e os demonstrativos ficam na aba **Membros**.
+
+**Exportar PDF** baixa o mesmo resumo com os três cards e o extrato completo, com paginação automática. Em períodos abertos, os valores são uma prévia com o acréscimo por ativo informado na tela, compartilhado com a revisão de fechamento. Em fechados, são usados os valores gravados nos demonstrativos, incluindo o acréscimo do fechamento. Saldos anteriores, pagamentos e ajustes já lançados não compõem os totais de novas cobranças.
+
+Requer a versão da API com `GET /lodge/:lodgeId/financial/periods/:periodId/report`.
+
+Cada despesa no extrato do período informa seu valor total, o valor da parcela no ciclo e o valor por membro (com o divisor usado), tanto na tela quanto no PDF. O rateio considera os destinatários do quadro capturado e trunca a divisão em centavos, como no fechamento; despesas individuais têm divisor 1. Sem destinatários elegíveis, o valor por membro fica indisponível.
+
+Quando houver acréscimo por ativo, o extrato e o PDF apresentam uma linha própria com o valor por membro, a quantidade de ativos e o valor total. O rodapé **Total do extrato** soma parcelas de rateio, individuais e esse acréscimo; os valores dos cards já incluem o acréscimo e não são recalculados por essa linha.

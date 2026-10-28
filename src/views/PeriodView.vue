@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import { ArrowLeft } from "@lucide/vue";
 import { token, lodgeId } from "@/lib/session";
 import { money, date, label, message } from "@/lib/format";
 import { useQuery } from "@/lib/query";
@@ -14,12 +13,13 @@ import { financialWrite, lodgePath } from "@/lib/financial-write";
 import { readStatements, type PeriodStatement } from "@/lib/read";
 import QueryState from "@/components/QueryState.vue";
 import Pagination from "@/components/Pagination.vue";
+import PeriodReport from "@/components/PeriodReport.vue";
 import Modal from "@/components/Modal.vue";
 const id = String(useRoute().params.id),
   reviewing = ref(false),
   busy = ref(false),
   error = ref(""),
-  addition = ref("0"),
+  addition = ref<string | number>("0"),
   preview = ref<FinancialPeriodPreview | null>(null),
   confirmed = ref(false),
   page = ref(1),
@@ -82,100 +82,114 @@ async function close() {
 }
 </script>
 <template>
-  <RouterLink class="back-link" to="/periodos"
-    ><ArrowLeft aria-hidden="true" :size="16" />Todos os períodos</RouterLink
-  ><QueryState
+  <QueryState
     :loading="query.loading.value"
     :error="query.error.value"
     @retry="query.refresh"
-    ><template v-if="query.data.value"
-      ><div class="page-header">
-        <div>
-          <p class="eyebrow">CICLO FINANCEIRO</p>
-          <h1>Período {{ query.data.value.sequence }}</h1>
-          <p>
-            {{ label(query.data.value.status) }} · Aberto em
-            {{ date(query.data.value.opened_at) }}
-          </p>
-        </div>
-        <button
-          v-if="query.data.value.status === 'open'"
-          @click="reviewing = true"
-        >
-          Revisar fechamento
-        </button>
-      </div>
-      <section class="section section-body">
-        <dl class="details">
-          <div>
-            <dt>Membros capturados</dt>
-            <dd>{{ query.data.value.captured_members }}</dd>
-          </div>
-          <div>
-            <dt>Fechamento</dt>
-            <dd>{{ date(query.data.value.closed_at) }}</dd>
-          </div>
-          <template v-if="query.data.value.status === 'closed'"
-            ><div>
-              <dt>Contribuição no fechamento</dt>
-              <dd>{{ money(query.data.value.closing_contribution_value) }}</dd>
-            </div>
-            <div>
-              <dt>Ágape no fechamento</dt>
-              <dd>{{ money(query.data.value.closing_agape_value) }}</dd>
-            </div>
-            <div>
-              <dt>Acréscimo</dt>
-              <dd>{{ money(query.data.value.acrescimo) }}</dd>
-            </div>
-            <div>
-              <dt>Demonstrativos</dt>
-              <dd>{{ query.data.value.statements_count }}</dd>
-            </div></template
+    ><template v-if="query.data.value">
+      <PeriodReport
+        v-model:addition="addition"
+        :period-id="id"
+        :sequence="query.data.value.sequence"
+        :status="query.data.value.status"
+      >
+        <template #actions>
+          <button
+            v-if="query.data.value.status === 'open'"
+            class="secondary period-review"
+            @click="reviewing = true"
           >
-        </dl>
-      </section>
-      <section v-if="query.data.value.status === 'closed'" class="section">
-        <div class="section-head"><h2>Demonstrativos dos membros</h2></div>
-        <QueryState
-          :loading="statements.loading.value"
-          :error="statements.error.value"
-          :empty="!statements.data.value?.results.length"
-          @retry="statements.refresh"
-          ><button
-            v-for="s in statements.data.value?.results"
-            :key="s.id"
-            class="row statement-button"
-            @click="selected = s"
+            Revisar fechamento
+          </button>
+        </template>
+        <template #details>
+          <section
+            class="period-metadata"
+            aria-labelledby="period-details-heading"
           >
-            <div>
-              <span class="row-title">{{ s.member_name }}</span
-              ><span class="row-meta">{{ s.member_status_slug }}</span>
+            <h2 id="period-details-heading">Detalhes do período</h2>
+            <dl class="details">
+              <div>
+                <dt>Abertura</dt>
+                <dd>{{ date(query.data.value.opened_at) }}</dd>
+              </div>
+              <div>
+                <dt>Membros</dt>
+                <dd>{{ query.data.value.captured_members }}</dd>
+              </div>
+              <div>
+                <dt>Fechamento</dt>
+                <dd>{{ date(query.data.value.closed_at) }}</dd>
+              </div>
+              <template v-if="query.data.value.status === 'closed'"
+                ><div>
+                  <dt>Contribuição</dt>
+                  <dd>
+                    {{ money(query.data.value.closing_contribution_value) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Ágape</dt>
+                  <dd>{{ money(query.data.value.closing_agape_value) }}</dd>
+                </div>
+                <div>
+                  <dt>Acréscimo</dt>
+                  <dd>{{ money(query.data.value.acrescimo) }}</dd>
+                </div>
+                <div>
+                  <dt>Demonstrativos</dt>
+                  <dd>{{ query.data.value.statements_count }}</dd>
+                </div></template
+              >
+            </dl>
+          </section>
+        </template>
+        <template #members>
+          <section v-if="query.data.value.status === 'closed'" class="section">
+            <div class="section-head"><h2>Demonstrativos dos membros</h2></div>
+            <QueryState
+              :loading="statements.loading.value"
+              :error="statements.error.value"
+              :empty="!statements.data.value?.results.length"
+              @retry="statements.refresh"
+              ><button
+                v-for="s in statements.data.value?.results"
+                :key="s.id"
+                class="row statement-button"
+                @click="selected = s"
+              >
+                <div>
+                  <span class="row-title">{{ s.member_name }}</span
+                  ><span class="row-meta">{{ s.member_status_slug }}</span>
+                </div>
+                <strong>{{ money(s.net_value) }}</strong>
+              </button></QueryState
+            ><Pagination
+              v-if="statements.data.value"
+              v-model:page="page"
+              :total="statements.data.value.total"
+            />
+          </section>
+          <section v-if="query.data.value.status === 'open'" class="section">
+            <div class="section-head">
+              <h2>Quadro capturado na abertura</h2>
             </div>
-            <strong>{{ money(s.net_value) }}</strong>
-          </button></QueryState
-        ><Pagination
-          v-if="statements.data.value"
-          v-model:page="page"
-          :total="statements.data.value.total"
-        />
-      </section>
-      <section class="section">
-        <div class="section-head"><h2>Quadro capturado na abertura</h2></div>
-        <RouterLink
-          v-for="m in query.data.value.members"
-          :key="m.member_id"
-          :to="`/membros/${m.member_id}`"
-          class="row row-link"
-          ><div>
-            <span class="row-title">{{ m.member_name }}</span
-            ><span class="row-meta">{{
-              m.agape_participant ? "Participa do ágape" : "Sem ágape"
-            }}</span>
-          </div>
-          <span class="badge">{{ m.member_status_slug }}</span></RouterLink
-        >
-      </section></template
+            <RouterLink
+              v-for="m in query.data.value.members"
+              :key="m.member_id"
+              :to="`/membros/${m.member_id}`"
+              class="row row-link"
+              ><div>
+                <span class="row-title">{{ m.member_name }}</span
+                ><span class="row-meta">{{
+                  m.agape_participant ? "Participa do ágape" : "Sem ágape"
+                }}</span>
+              </div>
+              <span class="badge">{{ m.member_status_slug }}</span></RouterLink
+            >
+          </section>
+        </template>
+      </PeriodReport></template
     ></QueryState
   >
   <Modal
@@ -281,3 +295,39 @@ async function close() {
     </div></Modal
   >
 </template>
+
+<style scoped>
+.period-review {
+  width: 100%;
+  min-height: 44px;
+  font-size: 13px;
+  margin: 12px 0 0;
+}
+.period-metadata {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  margin: 0 0 12px;
+  padding: 12px;
+  font-size: 13px;
+}
+.period-metadata h2 {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+.period-metadata dl {
+  padding: 0;
+  margin: 0;
+  gap: 12px 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.period-metadata dd {
+  font-size: 13px;
+  margin: 3px 0 0;
+  font-variant-numeric: tabular-nums;
+}
+.period-metadata dt {
+  font-size: 11px;
+}
+</style>

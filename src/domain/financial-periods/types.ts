@@ -100,3 +100,42 @@ export type CloseFinancialPeriodResponse = {
   member_charge_movements_created: number;
   differences: FinancialPeriodDifference[];
 };
+
+export type PeriodReportGroup = {
+  key: "active_with_agape" | "active_without_agape" | "away";
+  label: string;
+  member_count: number;
+  total_charges: number;
+  min_charge: number;
+  max_charge: number;
+};
+export type PeriodReportExpense = {
+  expense_id: string;
+  description: string;
+  category: string;
+  type: "rateio" | "individual";
+  installment_number: number;
+  installments_count: number;
+  value: number;
+  total_value: number;
+  divisor: number;
+  allocated_value: number | null;
+  allocation: string;
+};
+export type PeriodReport = {
+  financial_period_id: string;
+  sequence: number;
+  status: "open" | "closed";
+  opened_at: string;
+  closed_at: string | null;
+  generated_at: string;
+  acrescimo: number;
+  groups: PeriodReportGroup[];
+  total_charges: number;
+  other_charges: number;
+  other_members_count: number;
+  expenses: PeriodReportExpense[];
+  total_expenses: number;
+  impediments: string[];
+  differences: FinancialPeriodDifference[];
+};
