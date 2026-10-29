@@ -1,13 +1,16 @@
+const currencyFormatter = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
+const dateFormatter = new Intl.DateTimeFormat("pt-BR");
+
 export const money = (value: number | null | undefined) =>
   typeof value === "number" && Number.isFinite(value)
-    ? new Intl.NumberFormat("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-      }).format(value)
+    ? currencyFormatter.format(value)
     : "Indisponível";
 export const date = (value?: string | null) =>
   value && !Number.isNaN(Date.parse(value))
-    ? new Intl.DateTimeFormat("pt-BR").format(new Date(value))
+    ? dateFormatter.format(new Date(value))
     : "—";
 export const initials = (value: string) =>
   value

@@ -346,6 +346,14 @@ test("expense rateio preserves the include-away-members rule", async ({
   const request = page.waitForRequest(
     (r) => r.url().endsWith("/api/lodge/12/expense") && r.method() === "POST",
   );
+  let expenseReads = 0;
+  page.on("request", (request) => {
+    if (
+      new URL(request.url()).pathname.endsWith("/expense") &&
+      request.method() === "GET"
+    )
+      expenseReads++;
+  });
   await page.getByRole("button", { name: "Salvar despesa" }).click();
   const sent = await request;
   expect(sent.postDataJSON()).toMatchObject({
@@ -354,6 +362,11 @@ test("expense rateio preserves the include-away-members rule", async ({
     expense_type_id: "1",
   });
   expect(sent.headers()["idempotency-key"]).toBeTruthy();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: /Manutenção do templo/ }),
+  ).toBeVisible();
+  expect(expenseReads).toBe(1);
 });
 
 test("uncertain financial write replays identical body and idempotency key", async ({

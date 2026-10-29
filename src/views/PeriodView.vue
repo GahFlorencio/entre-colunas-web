@@ -126,7 +126,6 @@ async function close() {
     );
     reviewing.value = false;
     preview.value = null;
-    await query.refresh();
   } catch (e) {
     error.value = message(e);
     preview.value = null;

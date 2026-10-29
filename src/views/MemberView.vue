@@ -294,10 +294,7 @@ async function act() {
           v-if="payment"
           :member-id="id"
           @close="payment = false"
-          @saved="
-            payment = false;
-            query.refresh();
-          " /></template></QueryState
+          @saved="payment = false" /></template></QueryState
     ><Modal
       v-if="confirmation"
       :title="

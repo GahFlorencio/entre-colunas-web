@@ -85,7 +85,6 @@ async function cancel() {
       },
     );
     cancelling.value = false;
-    await query.refresh();
   } catch (e) {
     error.value = message(e);
   } finally {
@@ -193,10 +192,7 @@ async function cancel() {
         :expense="query.data.value.expense"
         :structure-allowed="actions?.editStructure"
         @close="edit = false"
-        @saved="
-          edit = false;
-          query.refresh();
-        " /></template></QueryState
+        @saved="edit = false" /></template></QueryState
   ><Modal
     v-if="cancelling"
     title="Cancelar despesa ou parcelas"

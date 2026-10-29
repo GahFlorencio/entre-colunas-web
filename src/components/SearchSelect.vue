@@ -24,13 +24,20 @@ const normalize = (value: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLocaleLowerCase("pt-BR");
-const matches = computed(() =>
-  props.options.filter((o) =>
-    normalize(`${o.label} ${o.detail || ""}`).includes(
-      normalize(search.value.trim()),
-    ),
-  ),
+// Normalize the catalog only when its options change, not on every keystroke.
+const indexedOptions = computed(() =>
+  props.options.map((option) => ({
+    option,
+    text: normalize(`${option.label} ${option.detail || ""}`),
+  })),
 );
+const matches = computed(() => {
+  const term = normalize(search.value.trim());
+  if (!term) return props.options;
+  return indexedOptions.value
+    .filter(({ text }) => text.includes(term))
+    .map(({ option }) => option);
+});
 const selected = computed(() =>
   props.options.find((o) => o.value === props.modelValue),
 );

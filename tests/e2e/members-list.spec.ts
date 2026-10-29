@@ -3,10 +3,10 @@ import { test, expect } from "@playwright/test";
 test("members filters search every page, preserve drafts and fit both themes", async ({
   page,
 }) => {
-  const members = Array.from({ length: 21 }, (_, i) => ({
+  const members = Array.from({ length: 41 }, (_, i) => ({
     id: String(i + 1),
     name:
-      i === 20
+      i === 40
         ? "José Antônio de Albuquerque Nome Muito Longo"
         : `Membro ${i + 1}`,
     phone: "11999999999",
@@ -23,6 +23,7 @@ test("members filters search every page, preserve drafts and fit both themes", a
       }),
     ),
   );
+  let memberRequests = 0;
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith("/me"))
@@ -48,12 +49,13 @@ test("members filters search every page, preserve drafts and fit both themes", a
         json: [{ id: "1", slug: "ativo", label: "Ativo", active: true }],
       });
     if (url.pathname.endsWith("/members")) {
+      memberRequests++;
       const current = Number(url.searchParams.get("page") || 1);
       // Deliberately cap server pages to verify the search follows pagination.
       return route.fulfill({
         json: {
           results: members.slice((current - 1) * 20, current * 20),
-          total: 21,
+          total: 41,
           page: current,
           per_page: 20,
         },
@@ -62,7 +64,7 @@ test("members filters search every page, preserve drafts and fit both themes", a
     return route.fulfill({ json: {} });
   });
   await page.goto("/membros");
-  await expect(page.getByText("21 cadastrados")).toBeVisible();
+  await expect(page.getByText("41 cadastrados")).toBeVisible();
   await page.getByRole("button", { name: "Filtrar membros" }).click();
   await page.getByLabel("Nome", { exact: true }).fill("jose antonio");
   await page.getByRole("button", { name: "Aplicar filtros" }).click();
@@ -86,7 +88,8 @@ test("members filters search every page, preserve drafts and fit both themes", a
         name: "Fechar menu",
         exact: true,
       });
-      if (await page.locator(".sidebar.opened").count()) await closeMenu.click();
+      if (await page.locator(".sidebar.opened").count())
+        await closeMenu.click();
       await page.getByRole("button", { name: "Filtrar membros" }).click();
       const modal = page.getByRole("dialog");
       const box = await modal.boundingBox();
@@ -110,4 +113,22 @@ test("members filters search every page, preserve drafts and fit both themes", a
       });
     }
   }
+  await page.getByRole("button", { name: "Filtrar membros" }).click();
+  await page.getByLabel("Nome", { exact: true }).fill("membro");
+  await page.getByRole("button", { name: "Aplicar filtros" }).click();
+  await expect(page.getByText("40 encontrados")).toBeVisible();
+  const requestsAfterSearch = memberRequests;
+  await page.getByRole("button", { name: "Próxima", exact: true }).click();
+  await expect(page.getByText("40 registro(s) · Página 2 de 2")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Membro 21 / })).toBeVisible();
+  expect(memberRequests).toBe(requestsAfterSearch);
+  await page.getByRole("button", { name: "Anterior", exact: true }).click();
+  await expect(page.getByText("40 registro(s) · Página 1 de 2")).toBeVisible();
+  expect(memberRequests).toBe(requestsAfterSearch);
+  // Applying a new search still fetches fresh data (no persistent data cache).
+  await page.getByRole("button", { name: "Filtrar membros" }).click();
+  await page.getByLabel("Nome", { exact: true }).fill("jose");
+  await page.getByRole("button", { name: "Aplicar filtros" }).click();
+  await expect(page.getByText("1 encontrados")).toBeVisible();
+  expect(memberRequests).toBe(requestsAfterSearch + 3);
 });

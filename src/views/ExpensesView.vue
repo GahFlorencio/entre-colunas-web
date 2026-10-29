@@ -425,14 +425,7 @@ async function exportPdf() {
       </div>
     </form>
   </Modal>
-  <ExpenseForm
-    v-if="showForm"
-    @close="close"
-    @saved="
-      close();
-      query.refresh();
-    "
-  />
+  <ExpenseForm v-if="showForm" @close="close" @saved="close" />
 </template>
 <style scoped>
 .sr-only {

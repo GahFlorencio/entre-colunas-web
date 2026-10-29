@@ -315,14 +315,7 @@ function close() {
       </div>
     </form>
   </Modal>
-  <OperationForm
-    v-if="showForm"
-    @close="close"
-    @saved="
-      close();
-      query.refresh();
-    "
-  />
+  <OperationForm v-if="showForm" @close="close" @saved="close" />
 </template>
 
 <style scoped>

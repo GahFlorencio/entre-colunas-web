@@ -33,7 +33,6 @@ async function reverse() {
     );
     reversing.value = false;
     success.value = "Estorno registrado com sucesso.";
-    await query.refresh();
   } catch (e) {
     error.value = message(e);
   } finally {

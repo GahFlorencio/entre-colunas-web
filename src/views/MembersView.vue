@@ -27,7 +27,7 @@ const normalize = (value: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLocaleLowerCase("pt-BR");
-const query = useQuery(
+const source = useQuery(
   async () => {
     const sessionToken = token.value,
       selectedLodge = lodgeId.value;
@@ -50,14 +50,27 @@ const query = useQuery(
     );
     const results = all.results.filter((m) => normalize(m.name).includes(term));
     return {
-      results: results.slice((page.value - 1) * 20, page.value * 20),
+      results,
       total: results.length,
-      page: page.value,
+      page: 1,
       per_page: 20,
     };
   },
-  () => [page.value, status.value, search.value],
+  // A name search collects all pages once; paging its results is local.
+  () => [search.value.trim() ? null : page.value, status.value, search.value],
 );
+const query = {
+  ...source,
+  data: computed(() => {
+    const data = source.data.value;
+    if (!data || !search.value.trim()) return data;
+    return {
+      ...data,
+      results: data.results.slice((page.value - 1) * 20, page.value * 20),
+      page: page.value,
+    };
+  }),
+};
 const visibleIds = computed(
   () => query.data.value?.results.map((m) => m.id) ?? [],
 );
