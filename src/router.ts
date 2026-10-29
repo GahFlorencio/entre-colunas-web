@@ -56,7 +56,7 @@ export const router = createRouter({
     {
       path: "/operacoes",
       component: () => import("./views/OperationsView.vue"),
-      meta: { title: "Operações financeiras" },
+      meta: { title: "Caixa" },
     },
     {
       path: "/operacoes/:id",

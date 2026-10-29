@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onScopeDispose, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { Plus, ChevronRight, Download } from "@lucide/vue";
+import { Plus, Receipt, Download, ListFilter } from "@lucide/vue";
 import { token, lodgeId, lodge } from "@/lib/session";
 import { money } from "@/lib/format";
 import { useQuery } from "@/lib/query";
@@ -15,6 +15,14 @@ import {
   expensePaymentLabel,
 } from "@/domain/expenses/report";
 import type { ExpenseFilters } from "@/domain/expenses/types";
+import Modal from "@/components/Modal.vue";
+import SearchSelect from "@/components/SearchSelect.vue";
+import { allEligibleMembers, collectPages } from "@/lib/catalogs";
+import { date } from "@/lib/format";
+import { listFinancialPeriods } from "@/domain/expenses/api";
+import type { LodgeFinancialSummary } from "@/domain/lodge-financial/summary-state";
+import MovementList from "@/components/MovementList.vue";
+import { readLodgeFinancialSummary } from "@/domain/lodge-financial/summary-source";
 import QueryState from "@/components/QueryState.vue";
 import Pagination from "@/components/Pagination.vue";
 import ExpenseForm from "@/components/ExpenseForm.vue";
@@ -68,6 +76,34 @@ const query = useQuery(
   },
   () => [page.value, filters.value],
 );
+const summary = useQuery(
+  async () =>
+    (await readLodgeFinancialSummary(
+      token.value,
+      lodgeId.value,
+    )) as LodgeFinancialSummary,
+);
+const movementItems = computed(() =>
+  (query.data.value?.results ?? []).map((e) => ({
+    key: e.id,
+    description: e.label,
+    value: e.total_value,
+    direction: "debit" as const,
+    group: "",
+    meta: [
+      expenseTypeLabel(e.expense_type_slug),
+      categoryNames.value[e.expense_category_id] || e.expense_category_slug,
+      `${e.parcels} ${e.parcels === 1 ? "parcela" : "parcelas"}`,
+      e.status === "partially_cancelled" ? "Cancelada parcialmente" : "",
+      expensePaymentLabel(e),
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    valueLabel: "Valor original",
+    unsigned: true,
+    to: `/despesas/${e.id}`,
+  })),
+);
 const categories = useQuery(() =>
   readExpenseCategories(token.value, lodgeId.value),
 );
@@ -87,16 +123,51 @@ const filterCount = computed(
       period.value,
     ].filter(Boolean).length,
 );
-function clearFilters() {
-  paid.value =
-    status.value =
-    category.value =
-    type.value =
-    from.value =
-    to.value =
-    member.value =
-    period.value =
-      "";
+const showFilters = ref(false),
+  selecting = ref(false);
+const emptyDraft = () => ({
+  status: "",
+  category: "",
+  type: "",
+  from: "",
+  to: "",
+  member: "",
+  period: "",
+});
+const draft = ref(emptyDraft());
+const draftInvalidDates = computed(
+  () =>
+    !!(draft.value.from && draft.value.to && draft.value.from > draft.value.to),
+);
+const members = useQuery(() => allEligibleMembers(token.value, lodgeId.value));
+const periods = useQuery(() =>
+  collectPages((page) =>
+    listFinancialPeriods(token.value, lodgeId.value, { page, perPage: 100 }),
+  ),
+);
+function openFilters() {
+  draft.value = {
+    status: status.value,
+    category: category.value,
+    type: type.value,
+    from: from.value,
+    to: to.value,
+    member: member.value,
+    period: period.value,
+  };
+  selecting.value = false;
+  showFilters.value = true;
+}
+function applyFilters() {
+  if (draftInvalidDates.value || selecting.value) return;
+  status.value = draft.value.status;
+  category.value = draft.value.category;
+  type.value = draft.value.type;
+  from.value = draft.value.from;
+  to.value = draft.value.to;
+  member.value = draft.value.member;
+  period.value = draft.value.period;
+  showFilters.value = false;
 }
 function close() {
   showForm.value = false;
@@ -173,9 +244,6 @@ async function exportPdf() {
   <header class="expenses-header">
     <div>
       <h1>Despesas</h1>
-      <span class="muted">{{
-        query.data.value ? `${query.data.value.total} registros` : "Carregando…"
-      }}</span>
     </div>
     <div class="expenses-actions">
       <button
@@ -203,6 +271,19 @@ async function exportPdf() {
   <p v-if="exportError" class="error export-feedback" role="alert">
     {{ exportError }}
   </p>
+  <QueryState
+    :loading="summary.loading.value"
+    :error="summary.error.value"
+    @retry="summary.refresh"
+  >
+    <article v-if="summary.data.value" class="stat expense-total">
+      <div class="stat-top">
+        A pagar <Receipt :size="20" aria-hidden="true" />
+      </div>
+      <strong>{{ money(summary.data.value.unpaid_expenses_total) }}</strong>
+      <small>Total da loja · despesas ainda não pagas</small>
+    </article>
+  </QueryState>
   <fieldset class="expense-filter-controls" :disabled="exporting">
     <legend class="sr-only">Filtros de despesas</legend>
     <div class="payment-tabs" role="group" aria-label="Pagamento">
@@ -220,13 +301,48 @@ async function exportPdf() {
         {{ option.label }}
       </button>
     </div>
-    <details class="expense-filters">
-      <summary>
-        Filtros <span v-if="filterCount" class="badge">{{ filterCount }}</span>
-      </summary>
-      <div class="expense-filter-grid">
+  </fieldset>
+  <section class="section expense-list" aria-label="Despesas registradas">
+    <div class="section-head">
+      <h2>Despesas</h2>
+      <button class="secondary" :disabled="exporting" @click="openFilters">
+        <ListFilter :size="18" aria-hidden="true" />Filtros
+        <span v-if="filterCount">{{ filterCount }}</span>
+      </button>
+    </div>
+    <QueryState
+      :loading="query.loading.value"
+      :error="query.error.value"
+      :empty="!query.data.value?.results.length"
+      @retry="query.refresh"
+    >
+      <div class="expense-movements">
+        <MovementList :items="movementItems" :show-dates="false" />
+      </div>
+    </QueryState>
+    <p v-if="query.data.value" class="expense-count muted">
+      {{ query.data.value.total }} registros
+    </p>
+    <Pagination
+      v-if="query.data.value"
+      v-model:page="page"
+      :total="query.data.value.total"
+    />
+  </section>
+  <Modal
+    v-if="showFilters"
+    title="Filtros de despesas"
+    class="expense-filter-modal"
+    @close="showFilters = false"
+  >
+    <form
+      class="expense-filter-form"
+      @submit.prevent="applyFilters"
+      @keydown.enter="selecting && $event.preventDefault()"
+    >
+      <div :class="['expense-filter-grid', { selecting }]">
         <label
-          >Situação<select v-model="status">
+          >Situação<select v-model="draft.status" aria-label="Situação">
             <option value="">Todas</option>
             <option
               v-for="s in ['active', 'partially_cancelled', 'cancelled']"
@@ -238,7 +354,7 @@ async function exportPdf() {
           </select></label
         >
         <label
-          >Categoria<select v-model="category">
+          >Categoria<select v-model="draft.category">
             <option value="">Todas</option>
             <option
               v-for="c in categories.data.value"
@@ -250,78 +366,65 @@ async function exportPdf() {
           </select></label
         >
         <label
-          >Tipo<select v-model="type">
+          >Tipo<select v-model="draft.type">
             <option value="">Todos</option>
             <option v-for="t in types.data.value" :key="t.id" :value="t.id">
               {{ t.label }}
             </option>
           </select></label
         >
-        <label>Data inicial<input v-model="from" type="date" /></label>
-        <label>Data final<input v-model="to" type="date" :min="from" /></label>
+        <label>Data inicial<input v-model="draft.from" type="date" /></label>
         <label
-          >ID do membro<input
-            v-model.lazy="member"
-            inputmode="numeric"
-            placeholder="Todos"
+          >Data final<input v-model="draft.to" type="date" :min="draft.from"
         /></label>
-        <label
-          >ID do período<input
-            v-model.lazy="period"
-            inputmode="numeric"
-            placeholder="Todos"
-        /></label>
-        <button class="secondary" @click="clearFilters">Limpar filtros</button>
+        <SearchSelect
+          v-model="draft.member"
+          label="Membro"
+          all-label="Todos"
+          :options="
+            (members.data.value?.results ?? []).map((m) => ({
+              value: m.id,
+              label: m.name,
+              detail: m.status.label,
+            }))
+          "
+          :loading="members.loading.value"
+          :error="members.error.value"
+          @retry="members.refresh"
+          @editing="selecting = $event"
+        />
+        <SearchSelect
+          v-model="draft.period"
+          label="Período"
+          all-label="Todos"
+          :options="
+            (periods.data.value?.results ?? []).map((p) => ({
+              value: p.id,
+              label: `Período ${p.sequence}`,
+              detail: `${p.status === 'open' ? 'Aberto' : 'Fechado'} · ${date(p.opened_at)}`,
+            }))
+          "
+          :loading="periods.loading.value"
+          :error="periods.error.value"
+          @retry="periods.refresh"
+          @editing="selecting = $event"
+        />
       </div>
-    </details>
-  </fieldset>
-  <section class="section expense-list" aria-label="Despesas registradas">
-    <QueryState
-      :loading="query.loading.value"
-      :error="query.error.value"
-      :empty="!query.data.value?.results.length"
-      @retry="query.refresh"
-    >
-      <RouterLink
-        v-for="e in query.data.value?.results"
-        :key="e.id"
-        :to="`/despesas/${e.id}`"
-        class="expense-item"
-      >
-        <div class="expense-description">
-          <strong>{{ e.label }}</strong>
-          <div class="expense-meta">
-            <span class="badge">{{
-              expenseTypeLabel(e.expense_type_slug)
-            }}</span
-            ><span class="expense-category">{{
-              categoryNames[e.expense_category_id] || e.expense_category_slug
-            }}</span>
-          </div>
-          <small
-            >{{ e.parcels }} {{ e.parcels === 1 ? "parcela" : "parcelas"
-            }}<template v-if="e.status === 'partially_cancelled'">
-              · Cancelada parcialmente</template
-            ></small
-          >
-        </div>
-        <div class="expense-amount">
-          <small>Valor original</small
-          ><strong>{{ money(e.total_value) }}</strong
-          ><span
-            :class="['badge', { success: e.payed && e.status !== 'cancelled' }]"
-            >{{ expensePaymentLabel(e) }}</span
-          >
-        </div>
-        <ChevronRight :size="15" aria-hidden="true" />
-      </RouterLink>
-    </QueryState>
-    <Pagination
-      v-if="query.data.value"
-      v-model:page="page"
-      :total="query.data.value.total"
-    />
-  </section>
+
+      <p v-if="draftInvalidDates && !selecting" class="error" role="alert">
+        A data final deve ser igual ou posterior à inicial.
+      </p>
+      <div v-if="!selecting" class="filter-actions">
+        <button type="button" class="secondary" @click="draft = emptyDraft()">
+          Limpar filtros
+        </button>
+        <button type="button" class="secondary" @click="showFilters = false">
+          Cancelar
+        </button>
+        <button :disabled="draftInvalidDates">Aplicar filtros</button>
+      </div>
+    </form>
+  </Modal>
   <ExpenseForm
     v-if="showForm"
     @close="close"
@@ -386,18 +489,6 @@ async function exportPdf() {
   color: white;
   border-color: var(--navy, #011733);
 }
-.expense-filters {
-  margin-top: 8px;
-}
-.expense-filters summary {
-  cursor: pointer;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  font-size: 13px;
-}
 .expense-filter-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -412,95 +503,71 @@ async function exportPdf() {
   width: 100%;
   min-width: 0;
 }
-.expense-list {
-  overflow: hidden;
-}
-.expense-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 15px;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
-  color: inherit;
-  text-decoration: none;
-  border-bottom: 1px solid var(--border);
-}
-.expense-item:last-of-type {
-  border-bottom: 0;
-}
-.expense-description {
+.expense-total {
+  margin-bottom: 16px;
   min-width: 0;
 }
-.expense-description > strong {
-  display: block;
-  overflow-wrap: anywhere;
-  font-size: 14px;
-  line-height: 1.4;
-}
-.expense-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  margin: 5px 0;
-}
-.expense-category {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  color: var(--muted);
-}
-.expense-description small,
-.expense-amount small {
-  font-size: 12px;
-  color: var(--muted);
-}
-.expense-amount {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-}
-.expense-amount strong {
-  font-size: 14px;
-  white-space: nowrap;
+.expense-total strong {
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
-.expense-meta .badge,
-.expense-amount .badge {
+.expense-movements {
+  padding: 0 16px;
+}
+.expense-count {
+  padding: 12px 16px 0;
+  margin: 0;
   font-size: 12px;
-  padding: 2px 6px;
 }
 .export-feedback {
   font-size: 12px;
   margin: 8px 0;
 }
-.expense-item:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: -3px;
-}
 @media (min-width: 768px) {
   .expense-filter-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .payment-tabs {
     max-width: 360px;
   }
-  .expense-item {
-    padding: 14px 20px;
-  }
 }
 @media (max-width: 350px) {
-  .expense-item {
-    padding: 12px 10px;
-    gap: 6px;
-  }
-  .expense-amount strong {
-    font-size: 12px;
-  }
   .expenses-actions button {
     padding: 0 9px;
   }
+}
+.expense-filter-modal {
+  width: min(480px, calc(100% - 24px));
+  max-width: calc(100% - 24px);
+  box-sizing: border-box;
+}
+.expense-filter-form {
+  min-width: 0;
+}
+.filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.filter-actions button {
+  min-height: 44px;
+  flex: 1;
+}
+.expense-filter-form:has(.selecting) {
+  display: flex;
+  flex-direction: column;
+  height: min(560px, 65dvh);
+  min-height: 0;
+}
+.expense-filter-grid.selecting {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  align-items: stretch;
+}
+.expense-filter-grid.selecting > :not(.is-open) {
+  display: none;
 }
 </style>

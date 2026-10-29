@@ -10,6 +10,7 @@ import { token, lodgeId, lodge } from "@/lib/session";
 import { money, message } from "@/lib/format";
 import { useQuery } from "@/lib/query";
 import type { PeriodReportMetadata } from "@/domain/financial-periods/types";
+import MovementList from "@/components/MovementList.vue";
 import QueryState from "@/components/QueryState.vue";
 const props = defineProps<{
   periodId: string;
@@ -35,6 +36,44 @@ const report = useQuery(
 );
 const statementLines = computed(() =>
   report.data.value ? periodReportLines(report.data.value) : [],
+);
+const movementItems = computed(() =>
+  statementLines.value.map((e) => ({
+    key: e.key,
+    description: e.description,
+    value: e.value,
+    direction: "debit" as const,
+    group: "",
+    valueLabel: "No período",
+    unsigned: true,
+    meta: [
+      e.type === "individual"
+        ? "Individual"
+        : e.type === "rateio"
+          ? "Rateio"
+          : e.type === "acrescimo"
+            ? "Acréscimo"
+            : "Geral",
+      e.category,
+      e.installment_number === null
+        ? "Única"
+        : `Parcela ${e.installment_number}/${e.installments_count}`,
+      e.allocation,
+      e.type !== "geral"
+        ? `${e.divisor} ${e.divisor === 1 ? "membro" : "membros"}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    details: [
+      { label: "Total da despesa", value: money(e.total_value) },
+      {
+        label: "Por membro",
+        value: e.allocated_value === null ? "—" : money(e.allocated_value),
+      },
+    ],
+    to: e.expense_id ? `/despesas/${e.expense_id}` : undefined,
+  })),
 );
 const statementTotal = computed(() =>
   report.data.value ? periodReportStatementTotal(report.data.value) : 0,
@@ -242,116 +281,32 @@ async function exportPdf() {
         <section v-if="report.data.value" class="section period-statement">
           <div class="section-head">
             <h2>Extrato de despesas</h2>
-            <span class="statement-count"
-              >{{ statementLines.length }}
-              {{ statementLines.length === 1 ? "item" : "itens" }}</span
-            >
           </div>
           <p v-if="!statementLines.length" class="section-body muted">
             Nenhuma despesa neste período.
           </p>
           <div
             v-else
-            class="period-expense-table"
+            class="period-movements"
             role="region"
             aria-label="Despesas do período"
           >
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Despesa</th>
-                  <th scope="col">Destinatários</th>
-                  <th scope="col">Parcela</th>
-                  <th scope="col" class="amount">Total da despesa</th>
-                  <th scope="col" class="amount">Neste período</th>
-                  <th scope="col" class="amount">Por membro</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="e in statementLines"
-                  :key="e.key"
-                  :class="{
-                    'increment-row': e.type === 'acrescimo',
-                    'same-total': e.total_value === e.value,
-                  }"
-                >
-                  <td class="expense-description">
-                    <RouterLink
-                      v-if="e.expense_id"
-                      :to="`/despesas/${e.expense_id}`"
-                      class="expense-name"
-                      ><span class="expense-title">{{ e.description }}</span>
-                      <span class="expense-context">
-                        <span
-                          :class="[
-                            'expense-kind',
-                            { individual: e.type === 'individual' },
-                          ]"
-                          >{{
-                            e.type === "individual"
-                              ? "Individual"
-                              : e.type === "rateio"
-                                ? "Rateio"
-                                : "Geral"
-                          }}</span
-                        >
-                        <span class="expense-category" :title="e.category">{{
-                          e.category
-                        }}</span>
-                        <span class="expense-installment"
-                          >{{ e.installment_number }}/{{
-                            e.installments_count
-                          }}</span
-                        >
-                      </span></RouterLink
-                    >
-                    <template v-else
-                      ><span class="expense-name"
-                        >Acréscimo por membro ativo</span
-                      ><span class="expense-context"
-                        >Somente ativos</span
-                      ></template
-                    >
-                  </td>
-                  <td class="expense-recipients">{{ e.allocation }}</td>
-                  <td class="expense-parcel">
-                    {{
-                      e.installment_number === null
-                        ? "Única"
-                        : `${e.installment_number}/${e.installments_count}`
-                    }}
-                  </td>
-                  <td class="amount">
-                    <span class="value-label">Total</span
-                    >{{ money(e.total_value) }}
-                  </td>
-                  <td class="amount cycle-amount">
-                    <span class="value-label">No período</span
-                    >{{ money(e.value) }}
-                  </td>
-                  <td class="amount allocated-amount">
-                    <span class="value-label">Por membro</span
-                    >{{
-                      e.allocated_value === null
-                        ? "—"
-                        : money(e.allocated_value)
-                    }}<span v-if="e.type !== 'geral'" class="recipient-count"
-                      >{{ e.divisor }}
-                      {{ e.divisor === 1 ? "membro" : "membros" }}</span
-                    >
-                  </td>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr>
-                  <th scope="row" colspan="4">Total do extrato</th>
-                  <td class="amount">{{ money(statementTotal) }}</td>
-                  <td class="amount">—</td>
-                </tr>
-              </tfoot>
-            </table>
+            <MovementList :items="movementItems" :show-dates="false" />
           </div>
+          <div
+            v-if="statementLines.length"
+            class="period-total statement-total"
+          >
+            <span>Total do extrato</span
+            ><strong>{{ money(statementTotal) }}</strong>
+          </div>
+          <p
+            v-if="statementLines.length"
+            class="statement-count statement-footer"
+          >
+            {{ statementLines.length }}
+            {{ statementLines.length === 1 ? "item" : "itens" }}
+          </p>
         </section>
       </QueryState>
     </section>
@@ -560,155 +515,15 @@ async function exportPdf() {
   font-size: 12px;
   white-space: nowrap;
 }
-.period-expense-table {
-  width: 100%;
+.period-movements {
+  padding: 0 14px;
 }
-table {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: collapse;
-  font-size: 13px;
-  text-align: left;
+.statement-total {
+  margin: 0 14px;
 }
-thead {
-  display: none;
-}
-tbody tr {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  padding: 8px 14px 12px;
-  border-bottom: 1px solid var(--border);
-  gap: 0 8px;
-}
-tbody td {
-  border: 0;
-  padding: 0;
-  min-width: 0;
-}
-.expense-description {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: 8px;
-}
-.expense-name {
-  display: block;
-  min-width: 0;
-  max-width: 100%;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-a.expense-name {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 3px;
-  min-height: 44px;
-}
-.expense-title {
-  display: block;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.expense-context {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  font-weight: 400;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.4;
-}
-.expense-kind {
-  flex-shrink: 0;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 1px 5px;
-  font-size: 10px;
-  color: var(--text);
-  white-space: nowrap;
-}
-.expense-kind.individual {
-  background: var(--gold-bg);
-  border-color: transparent;
-}
-.expense-category {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.expense-installment {
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.expense-recipients,
-.expense-parcel {
-  display: none;
-}
-.amount {
-  text-align: left;
-  font-variant-numeric: tabular-nums;
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-.value-label {
-  display: block;
-  color: var(--muted);
-  font-weight: 400;
-  font-size: 11px;
-  margin-bottom: 3px;
-}
-tbody tr.same-total {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.same-total .cycle-amount {
-  display: none;
-}
-.allocated-amount {
-  text-align: right;
-  font-weight: 700;
-}
-.recipient-count {
-  display: block;
-  font-size: 10px;
-  font-weight: 400;
-  color: var(--muted);
-  margin-top: 2px;
-}
-.increment-row {
-  background: var(--gold-bg);
-}
-tfoot tr {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px;
-  background: var(--bg);
-}
-tfoot th,
-tfoot td {
-  border: 0;
-  padding: 0;
-}
-tfoot th {
-  font-size: 12px;
-  font-weight: 500;
-}
-tfoot td {
-  font-weight: 700;
-}
-tfoot td:last-child {
-  display: none;
+.statement-footer {
+  margin: 0;
+  padding: 0 14px 14px;
 }
 @container (max-width: 370px) {
   .period-charge {
@@ -744,66 +559,6 @@ tfoot td:last-child {
   }
   .period-addition {
     max-width: 400px;
-  }
-  thead {
-    display: table-header-group;
-    background: var(--bg);
-  }
-  thead th {
-    padding: 12px;
-    font-size: 11px;
-  }
-  tbody tr {
-    display: table-row;
-  }
-  thead th:first-child {
-    width: 30%;
-  }
-  thead th:nth-child(2) {
-    width: 17%;
-  }
-  thead th:nth-child(3) {
-    width: 8%;
-  }
-  thead th:nth-child(n + 4) {
-    width: 15%;
-  }
-  tbody td {
-    vertical-align: top;
-    padding: 12px;
-    border-bottom: 1px solid var(--border);
-  }
-  .expense-description {
-    display: table-cell;
-    margin: 0;
-  }
-  .expense-recipients,
-  .expense-parcel {
-    display: table-cell;
-    font-size: 12px;
-  }
-  .same-total .cycle-amount {
-    display: table-cell;
-  }
-  .expense-name {
-    font-size: 13px;
-  }
-  .value-label {
-    display: none;
-  }
-  .amount,
-  .allocated-amount {
-    text-align: right;
-  }
-  tfoot tr {
-    display: table-row;
-  }
-  tfoot th,
-  tfoot td {
-    padding: 14px 12px;
-  }
-  tfoot td:last-child {
-    display: table-cell;
   }
 }
 </style>

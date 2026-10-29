@@ -256,7 +256,9 @@ async function login(page: Page) {
   await page.getByLabel("E-mail", { exact: true }).fill("ana@example.com");
   await page.getByLabel("Senha", { exact: true }).fill("senha-teste");
   await page.getByRole("button", { name: "Entrar na minha conta" }).click();
-  await expect(page.getByRole("heading", { name: "Olá, Ana." })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Visão geral", exact: true }),
+  ).toBeVisible();
 }
 async function navigate(page: Page, path: string) {
   await page.goto(path);
@@ -479,8 +481,591 @@ test("switching lodge discards previous member page", async ({ page }) => {
   await login(page);
   await navigate(page, "/membros/" + member.id);
   await page.getByLabel("Loja ativa").selectOption("13");
-  await expect(page.getByRole("heading", { name: "Olá, Ana." })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Visão geral", exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: member.name, exact: true }),
   ).toHaveCount(0);
+});
+
+test("Caixa keeps global cards compact and filters collapsed on mobile", async ({
+  page,
+}, info) => {
+  await mock(page);
+  await login(page);
+  await navigate(page, "/operacoes");
+  await expect(
+    page.getByRole("heading", { name: "Caixa", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("article", { name: "Caixa da Loja", exact: true }),
+  ).toContainText("900,00");
+  await expect(
+    page.getByRole("article", { name: "Despesas a pagar", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("article", { name: "Valores a Receber", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Membro: Todos os membros", exact: true }),
+  ).not.toBeVisible();
+  for (const width of [320, 390, 768]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate(
+        (theme) => document.documentElement.setAttribute("data-theme", theme),
+        theme,
+      );
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: `/tmp/cash-${info.project.name}-${width}-${theme}.png`,
+        animations: "disabled",
+      });
+    }
+  }
+  await page
+    .getByRole("button", { name: "Filtrar caixa", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Membro: Todos os membros", exact: true }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 700 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: `/tmp/cash-filter-modal-${info.project.name}.png`,
+    animations: "disabled",
+  });
+  await page.getByLabel("Tipo", { exact: true }).selectOption("member_payment");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Filtrar caixa", exact: true })
+    .click();
+  await expect(page.getByLabel("Tipo", { exact: true })).toHaveValue("");
+  await page.getByLabel("Tipo", { exact: true }).selectOption("member_payment");
+  await expect(
+    page.getByRole("button", { name: "Limpar filtros" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Aplicar filtros" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Filtrar caixa", exact: true })
+    .click();
+  await expect(page.getByLabel("Tipo", { exact: true })).toHaveValue(
+    "member_payment",
+  );
+  await page.getByRole("button", { name: "Limpar filtros" }).click();
+  await expect(page.getByLabel("Tipo", { exact: true })).toHaveValue("");
+  await page.getByRole("button", { name: "Aplicar filtros" }).click();
+  await page.getByRole("button", { name: "Registrar operação" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+});
+
+test("Caixa does not replace unavailable totals with zero", async ({
+  page,
+}) => {
+  await mock(page, { summaryFailure: true });
+  await login(page);
+  await navigate(page, "/operacoes");
+  await expect(
+    page.getByRole("heading", { name: "Caixa", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".cash-cards")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Tentar novamente" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Histórico do caixa" }),
+  ).toBeVisible();
+});
+
+test("Caixa selects members and periods by searchable data across pages", async ({
+  page,
+}, info) => {
+  await mock(page);
+  const memberPages: number[] = [];
+  await page.route("**/api/**/members?**", (route) => {
+    const url = new URL(route.request().url()),
+      p = Number(url.searchParams.get("page")),
+      size = Number(url.searchParams.get("per_page"));
+    memberPages.push(p);
+    const rows = Array.from({ length: 101 }, (_, i) => ({
+      ...member,
+      id: i === 100 ? member.id : String(i + 1),
+      name: i === 100 ? "João Carlos Almeida" : `Membro ${i + 1}`,
+    }));
+    return route.fulfill({
+      json: {
+        ...pageOf(rows.slice((p - 1) * size, p * size), p, size),
+        total: rows.length,
+      },
+    });
+  });
+  await login(page);
+  await navigate(page, "/operacoes");
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page
+    .getByRole("button", { name: "Filtrar caixa", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Membro: Todos os membros", exact: true })
+    .click();
+  for (const width of [1440, 1024, 768, 390, 320]) {
+    await page.setViewportSize({ width, height: 800 });
+    const dialog = page.getByRole("dialog");
+    const search = page.getByRole("searchbox", {
+      name: "Buscar membro",
+      exact: true,
+    });
+    await expect
+      .poll(async () => Math.round((await search.boundingBox())!.width))
+      .toBeGreaterThan(width < 400 ? 250 : 400);
+    const box = (await dialog.boundingBox())!,
+      inputBox = (await search.boundingBox())!;
+    expect(Math.abs(box.x - (width - box.width) / 2)).toBeLessThan(2);
+    expect(box.width).toBeLessThanOrEqual(480);
+    expect(Math.abs(inputBox.x - box.x - (width < 768 ? 17 : 21))).toBeLessThan(
+      2,
+    );
+    const list = page.locator(".selector-options:visible");
+    expect(
+      Math.abs((await list.boundingBox())!.width - inputBox.width),
+    ).toBeLessThan(2);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate(
+        (theme) => document.documentElement.setAttribute("data-theme", theme),
+        theme,
+      );
+      await page.screenshot({
+        path: `/tmp/cash-responsive-${info.project.name}-${width}-${theme}.png`,
+        animations: "disabled",
+      });
+    }
+  }
+  await page.setViewportSize({ width: 320, height: 420 });
+  const searchField = page.getByRole("searchbox", {
+    name: "Buscar membro",
+    exact: true,
+  });
+  await expect(
+    page.getByRole("heading", { name: "Selecionar membro", exact: true }),
+  ).toBeVisible();
+  expect((await searchField.boundingBox())!.height).toBeLessThanOrEqual(48);
+  const optionList = page.locator(".selector-options:visible");
+  await expect
+    .poll(async () => optionList.evaluate((el) => el.clientHeight))
+    .toBeGreaterThan(100);
+  expect(
+    await optionList.evaluate((el) => el.scrollHeight > el.clientHeight),
+  ).toBe(true);
+  await optionList.evaluate((el) => (el.scrollTop = el.scrollHeight));
+  await expect(
+    page.getByRole("button", {
+      name: "João Carlos Almeida Ativo",
+      exact: true,
+    }),
+  ).toBeInViewport();
+  await optionList.evaluate((el) => (el.scrollTop = 0));
+  await page.evaluate(() =>
+    document.documentElement.setAttribute("data-theme", "dark"),
+  );
+  await page.screenshot({
+    path: `/tmp/cash-search-short-${info.project.name}.png`,
+    animations: "disabled",
+  });
+  await searchField.fill("joao");
+  await searchField.press("Enter");
+  await expect(page.getByRole("dialog")).toBeVisible();
+
+  await expect(
+    page.getByRole("button", {
+      name: "João Carlos Almeida Ativo",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: `/tmp/cash-search-${info.project.name}.png`,
+    animations: "disabled",
+  });
+  await page
+    .getByRole("button", { name: "João Carlos Almeida Ativo", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", {
+      name: "Membro: João Carlos Almeida",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Período: Todos os períodos", exact: true })
+    .click();
+  await page
+    .getByRole("searchbox", { name: "Buscar período", exact: true })
+    .fill("inexistente");
+  await expect(
+    page.getByText("Nenhum resultado.", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("searchbox", { name: "Buscar período", exact: true })
+    .fill("3");
+  await page.getByRole("button", { name: /Período 3 Aberto/ }).click();
+  const request = page.waitForRequest(
+    (req) =>
+      req.url().includes("/financial/operations?") &&
+      new URL(req.url()).searchParams.get("member_id") === member.id,
+  );
+  await page
+    .getByRole("button", { name: "Aplicar filtros", exact: true })
+    .click();
+  const url = new URL((await request).url());
+  expect(url.searchParams.get("financial_period_id")).toBe(period.id);
+  expect(memberPages).toEqual([1, 2]);
+  await page
+    .getByRole("button", { name: "Filtrar caixa", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", {
+      name: "Membro: João Carlos Almeida",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Período: Período 3", exact: true }),
+  ).toBeVisible();
+});
+
+test("overview uses compact cards and readable ledger in both themes", async ({
+  page,
+}, info) => {
+  await mock(page);
+  await page.route("**/financial/account/movements?*", (route) =>
+    route.fulfill({
+      json: {
+        ...pageOf([
+          {
+            ...movement,
+            description:
+              "Pagamento com descrição extensa do membro José Antônio de Albuquerque para contribuição da loja",
+            value: 1234567.89,
+          },
+          {
+            ...movement,
+            id: "602",
+            direction: "debit",
+            description: "Pagamento de manutenção e conservação do templo",
+            value: 987654.32,
+            operation_type: "expense_registration",
+            created_at: "2026-10-19T10:00:00Z",
+          },
+        ]),
+        balance: 150,
+        account_type: "lodge",
+        member_id: null,
+        totals: {
+          total_credits: 1234567.89,
+          total_debits: 987654.32,
+          operations: [],
+        },
+      },
+    }),
+  );
+  await login(page);
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((theme) => {
+      document.documentElement.dataset.theme = theme;
+    }, theme);
+    for (const width of [320, 390, 768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      const overview = page.locator(".overview");
+      await expect(overview.locator(".ledger-entry")).toHaveCount(2);
+      await expect(overview.locator(".ledger-day h3")).toHaveCount(0);
+      await expect(overview).not.toContainText("Até 5 movimentos recentes");
+      await expect(overview).not.toContainText("expense_registration");
+      await expect(overview.locator(".ledger-entry").first()).toContainText(
+        "20/10/2026 - Contribuição",
+      );
+      await expect(overview.locator(".ledger-entry").nth(1)).toContainText(
+        "19/10/2026 - Contribuição",
+      );
+      await expect(overview.getByText("Débito", { exact: true })).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      const cards = await overview.locator(".stat").evaluateAll((nodes) =>
+        nodes.map((n) => {
+          const r = n.getBoundingClientRect();
+          return { x: r.x, y: r.y, width: r.width };
+        }),
+      );
+      if (width < 768) {
+        expect(cards[0]!.y).toBeLessThan(cards[1]!.y);
+        expect(cards[1]!.y).toBe(cards[2]!.y);
+      } else expect(cards[0]!.y).toBe(cards[2]!.y);
+      const entry = overview.locator(".ledger-entry").first();
+      const title = await entry.locator(".ledger-title").boundingBox();
+      const value = await entry.locator(".ledger-value").boundingBox();
+      if (width < 600) {
+        expect(value!.y).toBeGreaterThan(title!.y + title!.height);
+        expect(value!.x).toBe(title!.x);
+      }
+      await page.screenshot({
+        path: `test-results/overview-${info.project.name}-${theme}-${width}.png`,
+        fullPage: true,
+      });
+    }
+  }
+});
+
+test("Caixa ledger preserves entry values, directions and operation ordering", async ({
+  page,
+}, info) => {
+  await mock(page);
+  const entry = operation.entries[0]!;
+  const longDescription =
+    "Pagamento e ajuste de despesas com descrição extensa para conferir quebra de linhas e leitura completa";
+  await page.route("**/financial/operations?*", (route) =>
+    route.fulfill({
+      json: pageOf([
+        {
+          ...operation,
+          description: longDescription,
+          entries: [
+            { ...entry, description: longDescription, value: 9876543.25 },
+            {
+              ...entry,
+              id: "602",
+              financial_account_id: "52",
+              description: "Débito registrado",
+              direction: "debit",
+              value: 9876543.25,
+              category_label: null,
+            },
+          ],
+          entry_ids: ["601", "602"],
+        },
+        {
+          ...operation,
+          id: "702",
+          created_at: "2026-10-19T10:00:00Z",
+          description: "Operação sem lançamentos",
+          entries: [],
+          entry_ids: [],
+        },
+        {
+          ...operation,
+          id: "703",
+          description: "Crédito seguinte",
+          entries: [{ ...entry, id: "603", description: "Crédito seguinte" }],
+          entry_ids: ["603"],
+        },
+      ]),
+    }),
+  );
+  await login(page);
+  await navigate(page, "/operacoes");
+  const history = page.getByRole("region", { name: "Histórico do caixa" });
+  const rows = history.locator(".ledger-entry");
+  await expect(rows).toHaveCount(4);
+  await expect(rows.nth(0)).toContainText("+ R$");
+  await expect(rows.nth(0)).toContainText("9.876.543,25");
+  await expect(rows.nth(0)).toContainText("Crédito");
+  await expect(rows.nth(1)).toContainText("− R$");
+  await expect(rows.nth(1)).toContainText("Débito");
+  await expect(rows.nth(0).locator(".ledger-meta")).toHaveText(
+    "20/10/2026 - Contribuição",
+  );
+  await expect(rows.nth(1).locator(".ledger-meta")).toHaveText("20/10/2026");
+  await expect(rows.nth(2)).toContainText("Sem lançamentos");
+  await expect(rows.nth(2)).not.toContainText("0,00");
+  await expect(history.locator(".ledger-day h3")).toHaveText([
+    "20/10/2026",
+    "19/10/2026",
+    "20/10/2026",
+  ]);
+  await expect(history.locator(".pagination")).toContainText("3 registro(s)");
+  await expect(rows.nth(1)).toHaveAttribute("href", "/operacoes/701");
+  for (const width of [320, 390, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate(
+        (theme) => document.documentElement.setAttribute("data-theme", theme),
+        theme,
+      );
+      const copy = await rows.first().locator(".ledger-copy").boundingBox();
+      const amount = await rows.first().locator(".ledger-value").boundingBox();
+      if (width < 600) {
+        expect(amount!.y).toBeGreaterThan(copy!.y);
+        expect(amount!.x).toBeCloseTo(copy!.x, 0);
+      }
+      expect(
+        await history.evaluate((el) => el.scrollWidth <= el.clientWidth),
+      ).toBe(true);
+      expect(
+        (await history.boundingBox())!.x + (await history.boundingBox())!.width,
+      ).toBeLessThanOrEqual(width);
+      await page.screenshot({
+        path: `/tmp/cash-ledger-${width}-${theme}-${info.project.name}.png`,
+        fullPage: true,
+        animations: "disabled",
+      });
+    }
+  }
+  await rows.first().focus();
+  await expect(rows.first()).toBeFocused();
+  await rows.first().press("Enter");
+  await expect(page).toHaveURL(/operacoes\/701$/);
+});
+
+test("lodge statement uses date and category ledger subtitles", async ({
+  page,
+}, info) => {
+  await mock(page);
+  await page.route("**/financial/account/movements?*", (route) =>
+    route.fulfill({
+      json: {
+        ...pageOf([
+          {
+            ...movement,
+            description:
+              "Pagamento com descrição extensa para manter a leitura completa em telas pequenas",
+            value: 1234567.89,
+          },
+          {
+            ...movement,
+            id: "602",
+            direction: "debit",
+            value: 900,
+            category_label: null,
+            created_at: "2026-10-19T10:00:00Z",
+          },
+        ]),
+        balance: 150,
+        account_type: "lodge",
+        member_id: null,
+        totals: {
+          total_credits: 1234567.89,
+          total_debits: 900,
+          operations: [],
+        },
+      },
+    }),
+  );
+  await login(page);
+  await navigate(page, "/extrato");
+  const rows = page.locator(".lodge-movements .ledger-entry");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first().locator(".ledger-meta")).toHaveText(
+    "20/10/2026 - Contribuição",
+  );
+  await expect(rows.nth(1).locator(".ledger-meta")).toHaveText("19/10/2026");
+  await expect(rows.first()).toContainText("Crédito");
+  await expect(rows.nth(1)).toContainText("Débito");
+  for (const width of [320, 390, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate(
+        (theme) => (document.documentElement.dataset.theme = theme),
+        theme,
+      );
+      expect(
+        await page
+          .locator(".lodge-movements")
+          .evaluate((el) => el.scrollWidth <= el.clientWidth),
+      ).toBe(true);
+      await page.screenshot({
+        path: `/tmp/lodge-ledger-${width}-${theme}-${info.project.name}.png`,
+        animations: "disabled",
+        fullPage: true,
+      });
+    }
+  }
+});
+
+test("lodge PDF exports every filtered page and blocks partial or stale downloads", async ({
+  page,
+}, info) => {
+  await mock(page);
+  const requested: number[] = [];
+  let fail = false,
+    stale = false;
+  await page.route("**/financial/account/movements?*", async (route) => {
+    const url = new URL(route.request().url());
+    const p = Number(url.searchParams.get("page") || 1),
+      size = Number(url.searchParams.get("per_page") || 20);
+    if (size === 100) {
+      requested.push(p);
+      expect(url.searchParams.get("from")).toBe("2026-10-01");
+      expect(url.searchParams.get("to")).toBe("2026-10-29");
+      if (p === 2 && fail)
+        return route.fulfill({
+          status: 500,
+          json: { message: "Falha ao consultar" },
+        });
+      if (p === 2 && stale) {
+        await page
+          .getByLabel("Data inicial", { exact: true })
+          .fill("2026-10-02");
+      }
+    }
+    const rows = Array.from({ length: 105 }, (_, i) => ({
+      ...movement,
+      id: String(i + 1),
+      description: `Movimento ${i + 1} - Manutenção e conservação das instalações da loja com descrição completa`,
+      value: i % 2 ? 1234567.89 : 70.25,
+      direction: i % 2 ? "debit" : "credit",
+      category_label: i % 3 ? "Contribuição e manutenção" : null,
+    }));
+    return route.fulfill({
+      json: {
+        ...pageOf(rows.slice((p - 1) * size, p * size), p, size),
+        total: 105,
+        balance: 9876.54,
+        account_type: "lodge",
+        member_id: null,
+        totals: { total_credits: 0, total_debits: 0, operations: [] },
+      },
+    });
+  });
+  await login(page);
+  await navigate(page, "/extrato");
+  await page.getByLabel("Data inicial", { exact: true }).fill("2026-10-01");
+  await page.getByLabel("Data final", { exact: true }).fill("2026-10-29");
+  await page.getByRole("button", { name: "Próxima", exact: true }).click();
+  const button = page.getByRole("button", { name: "Exportar extrato em PDF" });
+  const downloaded = page.waitForEvent("download");
+  await button.click();
+  await (
+    await downloaded
+  ).saveAs(`/tmp/lodge-statement-report-${info.project.name}.pdf`);
+  expect(requested).toEqual([1, 2]);
+  let unexpectedDownload = false;
+  page.on("download", () => {
+    unexpectedDownload = true;
+  });
+  fail = true;
+  await button.click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(button).toBeEnabled();
+  expect(unexpectedDownload).toBe(false);
+  fail = false;
+  stale = true;
+  await button.click();
+  await expect(page.getByRole("alert")).toContainText("mudaram");
+  expect(unexpectedDownload).toBe(false);
 });

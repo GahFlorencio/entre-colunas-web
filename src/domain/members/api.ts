@@ -255,3 +255,53 @@ export function deleteMember(
     },
   );
 }
+
+export async function getMemberPaymentRecency(
+  token: string,
+  lodgeId: string,
+  memberIds: string[],
+): Promise<import("./payment-recency").PaymentRecency[]> {
+  const response = await request<{
+    masonic_lodge_id: string;
+    calculated_at: string;
+    results: import("./payment-recency").PaymentRecency[];
+  }>(
+    token,
+    `/lodge/${encodeURIComponent(lodgeId)}/members/payment-recency?${new URLSearchParams({ member_ids: memberIds.join(",") })}`,
+  );
+  if (
+    response.masonic_lodge_id !== lodgeId ||
+    !Number.isFinite(Date.parse(response.calculated_at)) ||
+    !Array.isArray(response.results) ||
+    response.results.length !== memberIds.length ||
+    new Set(response.results.map((item) => item.member_id)).size !==
+      memberIds.length ||
+    response.results.some(
+      (item) =>
+        !memberIds.includes(item.member_id) ||
+        !(
+          (item.days_since_last_payment === null &&
+            item.last_payment_at === null &&
+            item.reference_at === null &&
+            item.reference_source === null) ||
+          (Number.isSafeInteger(item.days_since_last_payment) &&
+            Number(item.days_since_last_payment) >= 0 &&
+            typeof item.reference_at === "string" &&
+            Number.isFinite(Date.parse(item.reference_at)) &&
+            [
+              "member_payment",
+              "adjustment",
+              "opening_balance",
+              "first_period",
+            ].includes(item.reference_source ?? "") &&
+            (item.reference_source === "first_period"
+              ? item.last_payment_at === null
+              : item.last_payment_at === item.reference_at))
+        ),
+    )
+  )
+    throw new Error(
+      "O indicador de pagamentos está indisponível. Tente novamente.",
+    );
+  return response.results;
+}

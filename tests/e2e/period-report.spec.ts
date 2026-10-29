@@ -110,6 +110,78 @@ async function setup(
             },
       ),
     };
+    if (path.endsWith("/81/statements"))
+      return send({
+        results: [
+          {
+            id: "31",
+            financial_period_id: "81",
+            member_id: "1",
+            member_name: "Ana do demonstrativo",
+            member_status_slug: "ativo",
+            new_charges_value: 50,
+            net_value: 40,
+            rounding_base_value: 50,
+            items: [
+              {
+                id: "1",
+                type: "contribution",
+                description: "Contribuição mensal",
+                value: 50,
+                divisor: null,
+                category_label: null,
+              },
+              {
+                id: "2",
+                type: "adjustment",
+                description: "Ajuste preservado",
+                value: 10,
+                divisor: null,
+                category_label: "Ajuste",
+              },
+            ],
+          },
+        ],
+        total: 1,
+        page: 1,
+        per_page: 20,
+      });
+    if (path.endsWith("/periods/preview"))
+      return send({
+        financial_period_id: "81",
+        sequence: 3,
+        acrescimo: 0,
+        impediments: [],
+        differences: [],
+        results: [
+          {
+            member_id: "1",
+            member_name: "Ana da prévia",
+            member_status_slug: "ativo",
+            current_balance: 10,
+            projected_balance: -30,
+            new_charges: 50,
+            rounding_base_value: 50,
+            divisors: 1,
+            items: [
+              {
+                type: "contribution",
+                description: "Contribuição mensal",
+                value: 50,
+                direction: "debit",
+                divisor: null,
+              },
+              {
+                type: "adjustment",
+                description: "Crédito de ajuste",
+                value: 10,
+                direction: "credit",
+                divisor: null,
+              },
+            ],
+          },
+        ],
+      });
     if (path.endsWith("/81/report"))
       return options.failed
         ? send({ error: "Valores financeiros indisponíveis" }, 503)
@@ -160,29 +232,26 @@ for (const closed of [false, true]) {
     ).toContainText(/10,00/);
     await page.getByRole("tab", { name: "Extrato", exact: true }).click();
     const row = region
-      .getByRole("row")
+      .locator(".ledger-entry")
       .filter({ hasText: "Acréscimo por membro ativo" });
     await expect(row).toContainText(/15,00/);
     await expect(row).toContainText(/5,00/);
     await expect(row).toContainText("3 membros");
     await expect(row.getByRole("link")).toHaveCount(0);
-    await expect(region).toContainText(/162,50/);
+    await expect(page.locator(".statement-total")).toContainText(/162,50/);
     const expense = region
-      .getByRole("row")
+      .locator(".ledger-entry")
       .filter({ hasText: "Manutenção do templo" });
     for (const value of [/300,00/, /100,00/, /33,33/])
       await expect(expense).toContainText(value);
     const individual = region
-      .getByRole("row")
+      .locator(".ledger-entry")
       .filter({ hasText: "Material individual" });
-    await expect(individual.locator(".expense-context")).toContainText(
+    await expect(individual.locator(".ledger-meta")).toContainText(
       "Individual",
     );
     await expect(individual).toContainText(/7,50/);
-    await expect(individual.getByRole("link")).toHaveAttribute(
-      "href",
-      "/despesas/12",
-    );
+    await expect(individual).toHaveAttribute("href", "/despesas/12");
     await expect(
       page.getByText("Despesa geral da loja", { exact: true }),
     ).toHaveCount(0);
@@ -352,7 +421,7 @@ test("period tabs support keyboard navigation and preserve the increment", async
   ).toBeEnabled();
 });
 
-for (const width of [320, 390, 1440]) {
+for (const width of [320, 390, 768, 1024, 1440]) {
   test(`individual expense stays aligned with long descriptions at ${width}px`, async ({
     page,
   }, info) => {
@@ -361,10 +430,22 @@ for (const width of [320, 390, 1440]) {
     await page.getByRole("tab", { name: "Extrato", exact: true }).click();
     const region = page.getByRole("region", { name: "Despesas do período" });
     const row = region
-      .getByRole("row")
+      .locator(".ledger-entry")
       .filter({ hasText: "Compra individual de materiais" });
-    await expect(row.locator(".expense-kind")).toHaveText("Individual");
+    await expect(row.locator(".ledger-meta")).toContainText("Individual");
     await expect(row).toContainText(/22,50/);
+    await expect(row.locator(".ledger-value")).toContainText("No período");
+    await expect(row.locator(".ledger-details")).toContainText(
+      "Total da despesa",
+    );
+    await expect(row.locator(".ledger-details")).toContainText("Por membro");
+    await expect(row).toHaveAttribute("href", "/despesas/12");
+    const descriptionBox = await row.locator(".ledger-copy").boundingBox();
+    const valueBox = await row.locator(".ledger-value").boundingBox();
+    if (width < 600) {
+      expect(valueBox!.y).toBeGreaterThan(descriptionBox!.y);
+      expect(valueBox!.x).toBeCloseTo(descriptionBox!.x, 0);
+    }
     await expect(row).toContainText(/7,50/);
     for (const theme of ["light", "dark"]) {
       if (theme === "dark")
@@ -381,7 +462,7 @@ for (const width of [320, 390, 1440]) {
       ).toBe(true);
       expect(
         await row
-          .locator(".expense-context")
+          .locator(".ledger-meta")
           .evaluate((el) => el.scrollWidth <= el.clientWidth),
       ).toBe(true);
       await page.screenshot({
@@ -399,11 +480,11 @@ for (const closed of [false, true]) {
     await setup(page, { closed, general: true });
     await page.getByRole("tab", { name: "Extrato", exact: true }).click();
     const row = page
-      .getByRole("row")
+      .locator(".ledger-entry")
       .filter({ hasText: "Despesa geral da loja" });
     await expect(row).toContainText("Geral");
     await expect(row).toContainText("30,00");
-    await expect(row.locator(".allocated-amount")).toContainText("0,00");
+    await expect(row.locator(".ledger-details")).toContainText("0,00");
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Exportar PDF" }).click();
     await (
@@ -411,5 +492,51 @@ for (const closed of [false, true]) {
     ).saveAs(
       `/tmp/period-general-${closed ? "closed" : "open"}-${info.project.name}.pdf`,
     );
+  });
+}
+
+for (const closed of [false, true]) {
+  test(`period compositions use the ledger at short mobile height (${closed ? "closed" : "open"})`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    await setup(page, { closed });
+    if (closed) {
+      await page.getByRole("tab", { name: "Membros", exact: true }).click();
+      await page.getByRole("button", { name: /Ana do demonstrativo/ }).click();
+    } else {
+      await page.getByRole("button", { name: "Revisar fechamento" }).click();
+      await page.getByRole("button", { name: "Calcular prévia" }).click();
+      await page.getByText("Ver composição", { exact: true }).click();
+    }
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.locator(".ledger-entry")).toHaveCount(2);
+    const debit = dialog
+      .locator(".ledger-entry")
+      .filter({ hasText: "Contribuição mensal" });
+    await expect(debit).toContainText("−");
+    await expect(debit).toContainText("Débito");
+    await expect(dialog.locator(".ledger-chevron")).toHaveCount(0);
+    if (closed)
+      await expect(
+        dialog
+          .locator(".ledger-entry")
+          .filter({ hasText: "Ajuste preservado" }),
+      ).toContainText("Valor registrado");
+    else
+      await expect(
+        dialog
+          .locator(".ledger-entry")
+          .filter({ hasText: "Crédito de ajuste" }),
+      ).toContainText("Crédito");
+    expect(
+      await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth),
+    ).toBe(true);
+    await debit.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: `/tmp/period-composition-${closed}-${info.project.name}.png`,
+    });
+    await dialog.press("Escape");
+    await expect(dialog).not.toBeVisible();
   });
 }

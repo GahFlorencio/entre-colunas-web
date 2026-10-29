@@ -2,7 +2,7 @@ import {
   listExpenseCategories,
   listExpenseMembers,
 } from "@/domain/expenses/api";
-async function collectPages<T extends { id: string }>(
+export async function collectPages<T extends { id: string }>(
   fetchPage: (
     page: number,
   ) => Promise<{ results: T[]; total: number; page: number; per_page: number }>,

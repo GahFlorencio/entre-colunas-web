@@ -251,3 +251,71 @@ export function listMemberAccountMovements(
     pageFrom(payload, memberId),
   );
 }
+
+/** Global posted balance; positive is credit, negative is debt. */
+export async function getMemberAccountBalance(
+  token: string,
+  lodgeId: string,
+  memberId: string,
+): Promise<number> {
+  requireId(lodgeId, "Loja");
+  requireId(memberId, "Membro");
+  const account = await requestMemberAccountResource(
+    token,
+    `/lodge/${encodeURIComponent(lodgeId)}/member/${encodeURIComponent(memberId)}/financial/account`,
+  );
+  if (
+    !isRecord(account) ||
+    account.type !== "member" ||
+    account.member_id !== memberId ||
+    typeof account.balance !== "number" ||
+    !Number.isFinite(account.balance) ||
+    !Number.isSafeInteger(Math.round(account.balance * 100))
+  )
+    throw invalidResponse();
+  return account.balance;
+}
+
+export type MemberAccountSummary = {
+  member_id: string;
+  balance: number;
+  payable: number;
+};
+export async function getMemberAccountSummaries(
+  token: string,
+  lodgeId: string,
+  memberIds: string[],
+): Promise<MemberAccountSummary[]> {
+  requireId(lodgeId, "Loja");
+  memberIds.forEach((id) => requireId(id, "Membro"));
+  const payload = await requestMemberAccountResource(
+    token,
+    `/lodge/${encodeURIComponent(lodgeId)}/members/financial/accounts?${new URLSearchParams({ member_ids: memberIds.join(",") })}`,
+  );
+  if (
+    !isRecord(payload) ||
+    payload.masonic_lodge_id !== lodgeId ||
+    !Array.isArray(payload.results) ||
+    payload.results.length !== memberIds.length
+  )
+    throw invalidResponse();
+  const seen = new Set<string>();
+  for (const item of payload.results) {
+    if (
+      !isRecord(item) ||
+      typeof item.member_id !== "string" ||
+      !memberIds.includes(item.member_id) ||
+      seen.has(item.member_id) ||
+      typeof item.balance !== "number" ||
+      !Number.isFinite(item.balance) ||
+      !Number.isSafeInteger(Math.round(item.balance * 100)) ||
+      typeof item.payable !== "number" ||
+      !Number.isFinite(item.payable) ||
+      Math.round(item.payable * 100) !==
+        Math.max(0, -Math.round(item.balance * 100))
+    )
+      throw invalidResponse();
+    seen.add(item.member_id);
+  }
+  return payload.results as MemberAccountSummary[];
+}

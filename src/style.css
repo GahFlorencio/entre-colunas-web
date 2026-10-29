@@ -19,6 +19,9 @@
   --navy: #011733;
   --danger: #b53232;
   --success: #276749;
+  --warning: #9a4b08;
+  --payment-yellow: #806000;
+  --payment-orange: #b34b00;
   --input: #fff;
 }
 * {
@@ -884,6 +887,9 @@ th {
   --input: #0e1d30;
   --danger: #f29494;
   --success: #91d4ae;
+  --warning: #fdba74;
+  --payment-yellow: #f4d35e;
+  --payment-orange: #ffad66;
   background: var(--bg);
   color: var(--text);
 }

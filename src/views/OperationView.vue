@@ -43,7 +43,7 @@ async function reverse() {
 </script>
 <template>
   <RouterLink class="back-link" to="/operacoes"
-    ><ArrowLeft aria-hidden="true" :size="16" />Todas as operações</RouterLink
+    ><ArrowLeft aria-hidden="true" :size="16" />Voltar ao caixa</RouterLink
   ><QueryState
     :loading="query.loading.value"
     :error="query.error.value"

@@ -42,3 +42,14 @@ export const labels: Record<string, string> = {
   superseded: "Substituída",
 };
 export const label = (v: string) => labels[v] || v;
+
+export function phone(value?: string | null): string {
+  const raw = value?.trim();
+  if (!raw) return "Sem telefone";
+  let digits = raw.replace(/\D/g, "");
+  const international =
+    digits.startsWith("55") && [12, 13].includes(digits.length);
+  if (international) digits = digits.slice(2);
+  if (![10, 11].includes(digits.length)) return raw;
+  return `${international ? "+55 " : ""}(${digits.slice(0, 2)}) ${digits.slice(2, -4)}-${digits.slice(-4)}`;
+}

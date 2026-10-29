@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { token, lodgeId } from "@/lib/session";
 import { money, date, label, message } from "@/lib/format";
@@ -14,6 +14,9 @@ import { readStatements, type PeriodStatement } from "@/lib/read";
 import QueryState from "@/components/QueryState.vue";
 import Pagination from "@/components/Pagination.vue";
 import PeriodReport from "@/components/PeriodReport.vue";
+import MovementList, {
+  type MovementListItem,
+} from "@/components/MovementList.vue";
 import Modal from "@/components/Modal.vue";
 const id = String(useRoute().params.id),
   reviewing = ref(false),
@@ -34,6 +37,58 @@ const statements = useQuery(
       : { results: [], total: 0, page: 1, per_page: 20 },
   () => [query.data.value?.status, page.value],
 );
+function itemTypeLabel(type: string) {
+  const names: Record<string, string> = {
+    contribution: "Contribuição",
+    agape: "Ágape",
+    acrescimo: "Acréscimo",
+    rateio: "Rateio",
+    individual: "Individual",
+  };
+  return names[type] || label(type);
+}
+const selectedMovements = computed<MovementListItem[]>(() =>
+  (selected.value?.items ?? []).map((i) => ({
+    key: i.id,
+    description: i.description,
+    value: i.value,
+    direction: [
+      "rateio",
+      "individual",
+      "contribution",
+      "agape",
+      "acrescimo",
+    ].includes(i.type)
+      ? "debit"
+      : "neutral",
+    group: "",
+    meta: [
+      itemTypeLabel(i.type),
+      i.category_label,
+      i.divisor ? `Divisor ${i.divisor}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  })),
+);
+function previewMovements(
+  items: FinancialPeriodPreview["results"][number]["items"],
+): MovementListItem[] {
+  return items.map((i, index) => ({
+    key: String(index),
+    description: i.description,
+    value: i.value,
+    direction: i.direction,
+    group: "",
+    meta: [
+      itemTypeLabel(i.type),
+      i.category_label,
+      i.divisor ? `Divisor ${i.divisor}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  }));
+}
 watch(addition, () => {
   preview.value = null;
   confirmed.value = false;
@@ -234,15 +289,10 @@ async function close() {
         >
         <details>
           <summary>Ver composição</summary>
-          <div
-            v-for="(item, i) in m.items"
-            :key="i"
-            class="row"
-            style="padding: 10px 0"
-          >
-            <span>{{ item.description }}</span
-            ><span>{{ money(item.value) }}</span>
-          </div>
+          <MovementList
+            :items="previewMovements(m.items)"
+            :show-dates="false"
+          />
         </details>
       </div>
       <p class="muted" style="font-size: 12px">
@@ -279,22 +329,8 @@ async function close() {
         <dd>{{ money(selected.net_value) }}</dd>
       </div>
     </dl>
-    <div
-      v-for="i in selected.items"
-      :key="i.id"
-      class="row"
-      style="padding: 16px 0"
-    >
-      <div>
-        <strong>{{ i.description }}</strong
-        ><span class="row-meta"
-          >{{ i.category_label || label(i.type)
-          }}{{ i.divisor ? ` · Divisor ${i.divisor}` : "" }}</span
-        >
-      </div>
-      <strong>{{ money(i.value) }}</strong>
-    </div></Modal
-  >
+    <MovementList :items="selectedMovements" :show-dates="false"
+  /></Modal>
 </template>
 
 <style scoped>

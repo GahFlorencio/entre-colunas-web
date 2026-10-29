@@ -6,7 +6,6 @@ import {
   UsersRound,
   Receipt,
   CalendarRange,
-  ArrowLeftRight,
   Settings2,
   LogOut,
   Download,
@@ -18,6 +17,7 @@ import {
   BookOpen,
   RefreshCw,
 } from "@lucide/vue";
+import CashRegisterIcon from "@/components/CashRegisterIcon.vue";
 import { useRegisterSW } from "virtual:pwa-register/vue";
 import {
   user,
@@ -104,7 +104,7 @@ const nav = [
   { path: "/membros", title: "Membros", icon: UsersRound },
   { path: "/despesas", title: "Despesas", icon: Receipt },
   { path: "/periodos", title: "Períodos", icon: CalendarRange },
-  { path: "/operacoes", title: "Operações", icon: ArrowLeftRight },
+  { path: "/operacoes", title: "Caixa", icon: CashRegisterIcon },
   { path: "/extrato", title: "Extrato da loja", icon: BookOpen },
 ];
 const pendingError = ref(""),
