@@ -109,7 +109,7 @@ const query = useQuery(
   align-items: center;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-surface);
   padding: 14px;
   margin-bottom: 10px;
 }

@@ -395,7 +395,7 @@ function close() {
   background: var(--navy);
   color: white;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-surface);
   min-width: 18px;
   height: 18px;
   display: grid;
@@ -460,7 +460,7 @@ function close() {
 .cash-cards .stat {
   padding: 14px 12px;
   min-width: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-surface);
 }
 .cash-cards .stat:first-child {
   grid-column: 1/-1;

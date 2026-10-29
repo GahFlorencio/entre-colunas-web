@@ -120,6 +120,10 @@ async function retryPending() {
   }
 }
 const contextKey = computed(() => `${user.value?.id}:${lodgeId.value}`);
+function logout() {
+  menu.value = false;
+  signOut();
+}
 function changeLodge(event: Event) {
   selectLodge((event.target as HTMLSelectElement).value);
   menu.value = false;
@@ -151,7 +155,7 @@ function changeLodge(event: Event) {
     >
       <RouterLink to="/" class="brand" @click="menu = false"
         ><img src="/logo-dark.png" alt="" width="44" height="44" /><span
-          >ENTRE COLUNAS<small>GESTÃO & FRATERNIDADE</small></span
+          >Entre Colunas<small>Gestão da loja</small></span
         ></RouterLink
       >
       <button
@@ -162,7 +166,7 @@ function changeLodge(event: Event) {
       >
         <X aria-hidden="true" />
       </button>
-      <p class="nav-label">ESPAÇO DA LOJA</p>
+      <p class="nav-label">Navegação</p>
       <nav aria-label="Navegação principal">
         <RouterLink
           v-for="item in nav"
@@ -181,6 +185,9 @@ function changeLodge(event: Event) {
         >
       </nav>
       <div class="sidebar-bottom">
+        <button v-if="isMobile" aria-label="Sair da conta" @click="logout">
+          <LogOut aria-hidden="true" :size="20" /> Sair da conta
+        </button>
         <RouterLink v-if="user.is_admin" to="/admin" @click="menu = false"
           ><Settings2 aria-hidden="true" :size="20" /> Administração</RouterLink
         >
@@ -189,10 +196,6 @@ function changeLodge(event: Event) {
         ><button v-if="!installed" @click="install">
           <Download aria-hidden="true" :size="20" /> Instalar aplicativo
         </button>
-        <div class="sidebar-note">
-          <span class="small-gold">SIMPLES. ORGANIZADO. CONECTADO.</span>
-          <p>Mais tempo para o que<br />nos une.</p>
-        </div>
       </div>
     </aside>
     <div class="workspace" :inert="isMobile && menu">
@@ -208,7 +211,7 @@ function changeLodge(event: Event) {
         </button>
         <div class="lodge-picker">
           <Landmark aria-hidden="true" :size="20" /><label
-            ><span>LOJA ATIVA</span
+            ><span>Loja ativa</span
             ><select
               aria-label="Loja ativa"
               :value="lodgeId"
@@ -245,9 +248,10 @@ function changeLodge(event: Event) {
             }}</small>
           </div>
           <button
+            v-if="!isMobile"
             class="icon-button"
             aria-label="Sair da conta"
-            @click="signOut()"
+            @click="logout"
           >
             <LogOut aria-hidden="true" :size="20" />
           </button>
@@ -279,10 +283,34 @@ function changeLodge(event: Event) {
           <p>Solicite ao administrador que vincule uma loja à sua conta.</p>
         </div>
         <footer class="page-footer">
-          <span>Entre Colunas</span
-          ><span>Organização que fortalece a união.</span>
+          <span>Entre Colunas</span><span>Gestão da loja</span>
         </footer>
       </main>
+      <nav v-if="isMobile" class="mobile-nav" aria-label="Navegação rápida">
+        <RouterLink
+          v-for="item in nav.slice(0, 5)"
+          :key="item.path"
+          :to="item.path"
+          :class="{
+            active:
+              item.path === '/'
+                ? route.path === '/'
+                : route.path.startsWith(item.path),
+          }"
+          :aria-current="
+            (
+              item.path === '/'
+                ? route.path === '/'
+                : route.path.startsWith(item.path)
+            )
+              ? 'page'
+              : undefined
+          "
+        >
+          <component :is="item.icon" :size="20" aria-hidden="true" />
+          <span>{{ item.path === "/" ? "Geral" : item.title }}</span>
+        </RouterLink>
+      </nav>
     </div>
   </div>
   <main v-else id="main"><RouterView /></main>

@@ -331,7 +331,7 @@ async function act() {
 .member-profile {
   border: 1px solid var(--border);
   background: var(--surface);
-  border-radius: 16px;
+  border-radius: var(--radius-surface);
   padding: 16px;
   margin-bottom: 20px;
 }
@@ -419,7 +419,7 @@ async function act() {
   top: 48px;
   width: 180px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-surface);
   padding: 6px;
   background: var(--surface);
   box-shadow: 0 8px 24px #0002;

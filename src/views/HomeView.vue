@@ -144,7 +144,7 @@ const today = new Intl.DateTimeFormat("pt-BR", {
             <MovementList :items="movementItems" :show-dates="false" /></div
         ></QueryState>
       </section>
-      <section class="section">
+      <section class="section current-period">
         <div class="section-head">
           <h2>Período atual</h2>
           <CalendarDays aria-hidden="true" :size="19" class="muted" />
@@ -200,10 +200,10 @@ const today = new Intl.DateTimeFormat("pt-BR", {
 }
 .stat:first-child {
   grid-column: 1 / -1;
-  padding: 20px;
+  padding: 16px;
 }
 .stat-top {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   gap: 8px;
 }
 .stat-top svg {
@@ -224,14 +224,25 @@ const today = new Intl.DateTimeFormat("pt-BR", {
   font-size: 12px;
 }
 .quick-actions {
-  gap: 8px;
-  margin-bottom: 20px;
+  gap: 0;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
 }
 .quick-action {
   min-width: 0;
   min-height: 44px;
   padding: 12px;
   gap: 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.quick-action:hover {
+  background: var(--surface-subtle);
+}
+.quick-action + .quick-action {
+  border-left: 1px solid var(--border);
 }
 .quick-action strong {
   margin: 0;
@@ -266,9 +277,12 @@ const today = new Intl.DateTimeFormat("pt-BR", {
   padding: 16px;
 }
 .current-period-title {
-  font-size: 24px;
-  margin: 16px 0 8px;
+  font-size: 20px;
+  margin: 12px 0 8px;
   overflow-wrap: anywhere;
+}
+.current-period .section-body > p {
+  margin-bottom: 8px;
 }
 @media (min-width: 768px) {
   .stat-grid {

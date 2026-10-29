@@ -408,7 +408,7 @@ async function exportPdf() {
   align-items: center;
   padding: 12px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-surface);
   background: var(--surface);
 }
 .period-card:first-child {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import { X } from "@lucide/vue";
 const props = defineProps<{ title: string; busy?: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 const dialog = ref<HTMLDialogElement>();
@@ -21,7 +22,7 @@ function cancel(event: Event) {
         :disabled="busy"
         @click="$emit('close')"
       >
-        ×
+        <X aria-hidden="true" :size="20" />
       </button>
     </div>
     <slot />

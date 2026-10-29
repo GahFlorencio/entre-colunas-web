@@ -33,15 +33,8 @@ async function submit() {
         >
       </div>
       <div class="story-content">
-        <span class="small-gold">CUIDAR DA LOJA É CUIDAR DE TODOS.</span>
-        <h1>Uma gestão clara.<br />Uma união<br /><em>mais forte.</em></h1>
-        <p>
-          Membros, finanças e decisões.<br />Tudo organizado, entre colunas.
-        </p>
-        <div class="story-rule" />
-        <span class="story-caption"
-          >TRADIÇÃO QUE NOS GUIA. ORGANIZAÇÃO QUE NOS MOVE.</span
-        >
+        <h1>Gestão da loja,<br />em um só lugar.</h1>
+        <p>Acompanhe membros, despesas e períodos financeiros.</p>
       </div>
       <span class="story-footer">Entre Colunas · Gestão da sua loja</span>
     </section>
@@ -54,9 +47,8 @@ async function submit() {
           width="76"
           height="76"
         />
-        <p class="eyebrow">BEM-VINDO AO ENTRE COLUNAS</p>
-        <h2>Bom ter você aqui.</h2>
-        <p class="muted">Entre na sua conta para continuar.</p>
+        <h2>Acesse sua conta</h2>
+        <p class="muted">Use o e-mail cadastrado pela administração.</p>
         <p v-if="error || sessionNotice" class="alert" role="alert">
           {{ error || sessionNotice }}
         </p>
@@ -106,9 +98,7 @@ async function submit() {
           Precisa de acesso? <span>Fale com o administrador da sua loja.</span>
         </div>
       </form>
-      <small class="login-copyright"
-        >Entre Colunas · Feito para aproximar.</small
-      >
+      <small class="login-copyright">Entre Colunas · Gestão da loja</small>
     </section>
   </div>
 </template>

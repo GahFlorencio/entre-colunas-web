@@ -274,6 +274,7 @@ test("login, dashboard and routes render without overflow or runtime errors", as
   await login(page);
   await expect(page.getByText("R$ 900,00", { exact: true })).toBeVisible();
   await page.screenshot({
+    animations: "disabled",
     path: `test-results/home-${info.project.name}.png`,
     fullPage: true,
   });
@@ -300,6 +301,7 @@ test("login, dashboard and routes render without overflow or runtime errors", as
   await page.getByRole("button", { name: "Ativar tema escuro" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.screenshot({
+    animations: "disabled",
     path: `test-results/settings-dark-${info.project.name}.png`,
     fullPage: true,
   });
@@ -453,7 +455,7 @@ test("session expiry clears private UI and returns to login", async ({
   await mock(page, { ttl: 2 });
   await login(page);
   await expect(
-    page.getByRole("heading", { name: "Bom ter você aqui." }),
+    page.getByRole("heading", { name: "Acesse sua conta" }),
   ).toBeVisible({ timeout: 7000 });
   expect(
     await page.evaluate(() =>
@@ -523,6 +525,7 @@ test("Caixa keeps global cards compact and filters collapsed on mobile", async (
         ),
       ).toBe(true);
       await page.screenshot({
+        animations: "disabled",
         path: `/tmp/cash-${info.project.name}-${width}-${theme}.png`,
         animations: "disabled",
       });
@@ -541,6 +544,7 @@ test("Caixa keeps global cards compact and filters collapsed on mobile", async (
     ),
   ).toBe(true);
   await page.screenshot({
+    animations: "disabled",
     path: `/tmp/cash-filter-modal-${info.project.name}.png`,
     animations: "disabled",
   });
@@ -651,6 +655,7 @@ test("Caixa selects members and periods by searchable data across pages", async 
         theme,
       );
       await page.screenshot({
+        animations: "disabled",
         path: `/tmp/cash-responsive-${info.project.name}-${width}-${theme}.png`,
         animations: "disabled",
       });
@@ -684,6 +689,7 @@ test("Caixa selects members and periods by searchable data across pages", async 
     document.documentElement.setAttribute("data-theme", "dark"),
   );
   await page.screenshot({
+    animations: "disabled",
     path: `/tmp/cash-search-short-${info.project.name}.png`,
     animations: "disabled",
   });
@@ -698,6 +704,7 @@ test("Caixa selects members and periods by searchable data across pages", async 
     }),
   ).toBeVisible();
   await page.screenshot({
+    animations: "disabled",
     path: `/tmp/cash-search-${info.project.name}.png`,
     animations: "disabled",
   });
@@ -825,6 +832,7 @@ test("overview uses compact cards and readable ledger in both themes", async ({
         expect(value!.x).toBe(title!.x);
       }
       await page.screenshot({
+        animations: "disabled",
         path: `test-results/overview-${info.project.name}-${theme}-${width}.png`,
         fullPage: true,
       });
@@ -920,6 +928,7 @@ test("Caixa ledger preserves entry values, directions and operation ordering", a
         (await history.boundingBox())!.x + (await history.boundingBox())!.width,
       ).toBeLessThanOrEqual(width);
       await page.screenshot({
+        animations: "disabled",
         path: `/tmp/cash-ledger-${width}-${theme}-${info.project.name}.png`,
         fullPage: true,
         animations: "disabled",
@@ -989,6 +998,7 @@ test("lodge statement uses date and category ledger subtitles", async ({
           .evaluate((el) => el.scrollWidth <= el.clientWidth),
       ).toBe(true);
       await page.screenshot({
+        animations: "disabled",
         path: `/tmp/lodge-ledger-${width}-${theme}-${info.project.name}.png`,
         animations: "disabled",
         fullPage: true,
@@ -1088,6 +1098,7 @@ test("theme palette keeps readable text and controls across responsive views", a
           ),
         ).toBe(true);
         await page.screenshot({
+          animations: "disabled",
           path: `test-results/review-${theme}-${width}-${path.replaceAll("/", "_")}-${info.project.name}.png`,
           fullPage: true,
         });
@@ -1156,5 +1167,101 @@ test("theme palette keeps readable text and controls across responsive views", a
     await expect(
       page.getByRole("button", { name: "Abrir menu" }),
     ).toBeFocused();
+  }
+});
+
+test("mobile navigation keeps destinations reachable and content clear of the bottom bar", async ({
+  page,
+}, info) => {
+  await mock(page);
+  await login(page);
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((value) => localStorage.setItem("theme", value), theme);
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 420 });
+      await navigate(page, "/");
+      const nav = page.getByRole("navigation", { name: "Navegação rápida" });
+      await expect(nav.getByRole("link")).toHaveCount(5);
+      for (const link of await nav.getByRole("link").all()) {
+        const bounds = (await link.boundingBox())!;
+        expect(bounds.width).toBeGreaterThanOrEqual(44);
+        expect(bounds.height).toBeGreaterThanOrEqual(44);
+      }
+      const members = nav.getByRole("link", { name: "Membros", exact: true });
+      await members.focus();
+      await page.keyboard.press("Enter");
+      await expect(page).toHaveURL(/\/membros$/);
+      await expect(members).toHaveAttribute("aria-current", "page");
+      await nav.getByRole("link", { name: "Geral", exact: true }).click();
+      await page.locator(".page-footer").scrollIntoViewIfNeeded();
+      const footer = (await page.locator(".page-footer").boundingBox())!;
+      const bottomBar = (await nav.boundingBox())!;
+      expect(footer.y + footer.height).toBeLessThanOrEqual(bottomBar.y);
+      await page.getByRole("button", { name: "Abrir menu" }).click();
+      expect(
+        await page
+          .locator(".mobile-nav")
+          .evaluate((el) => !!el.closest("[inert]")),
+      ).toBe(true);
+      await page.keyboard.press("Escape");
+      await expect(
+        page.getByRole("button", { name: "Abrir menu" }),
+      ).toBeFocused();
+      await page.screenshot({
+        animations: "disabled",
+        path: `test-results/navigation-${theme}-${width}-${info.project.name}.png`,
+      });
+    }
+  }
+  await page.getByRole("button", { name: "Abrir menu" }).click();
+  await page.getByRole("button", { name: "Sair da conta" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Acesse sua conta" }),
+  ).toBeVisible();
+  await login(page);
+  await expect(
+    page.getByRole("button", { name: "Abrir menu" }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await expect(
+    page.getByRole("navigation", { name: "Navegação rápida" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("navigation", { name: "Navegação principal" }),
+  ).toBeVisible();
+});
+
+test("login fields stay usable in both themes and narrow viewports", async ({
+  page,
+}, info) => {
+  await page.goto("/login");
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((value) => localStorage.setItem("theme", value), theme);
+    for (const width of [320, 390, 768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.reload();
+      await expect(
+        page.getByRole("heading", { name: "Acesse sua conta" }),
+      ).toBeVisible();
+      for (const field of [
+        page.getByLabel("E-mail"),
+        page.locator('input[name="password"]'),
+      ]) {
+        const rect = (await field.boundingBox())!;
+        expect(rect.height).toBeGreaterThanOrEqual(44);
+        expect(rect.x).toBeGreaterThanOrEqual(16);
+        expect(rect.x + rect.width).toBeLessThanOrEqual(width - 16);
+        expect(
+          await field.evaluate((el) =>
+            parseFloat(getComputedStyle(el).fontSize),
+          ),
+        ).toBeGreaterThanOrEqual(16);
+      }
+      await page.screenshot({
+        animations: "disabled",
+        path: `test-results/login-${theme}-${width}-${info.project.name}.png`,
+        fullPage: true,
+      });
+    }
   }
 });

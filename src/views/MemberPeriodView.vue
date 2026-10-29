@@ -214,7 +214,7 @@ async function exportPdf() {
 .member-period-total {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-surface);
   padding: 20px;
   display: grid;
   gap: 8px;
