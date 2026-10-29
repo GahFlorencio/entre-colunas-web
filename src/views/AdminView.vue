@@ -155,7 +155,6 @@ async function save() {
 <template>
   <div class="page-header">
     <div>
-      <p class="eyebrow">ADMINISTRAÇÃO</p>
       <h1>Cadastros do sistema</h1>
       <p>Gerencie potências, lojas, usuários e seus vínculos.</p>
     </div>

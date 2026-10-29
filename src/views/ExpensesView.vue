@@ -485,9 +485,9 @@ async function exportPdf() {
   padding: 8px;
 }
 .payment-tabs button[aria-pressed="true"] {
-  background: var(--navy, #011733);
-  color: white;
-  border-color: var(--navy, #011733);
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
 }
 .expense-filter-grid {
   display: grid;

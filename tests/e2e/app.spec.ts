@@ -1069,3 +1069,92 @@ test("lodge PDF exports every filtered page and blocks partial or stale download
   await expect(page.getByRole("alert")).toContainText("mudaram");
   expect(unexpectedDownload).toBe(false);
 });
+
+test("theme palette keeps readable text and controls across responsive views", async ({
+  page,
+}, info) => {
+  await mock(page);
+  await login(page);
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((value) => localStorage.setItem("theme", value), theme);
+    for (const width of [320, 390, 768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      for (const path of ["/", "/membros", "/periodos/81", "/configuracoes"]) {
+        await navigate(page, path);
+        await expect(page.locator(".spinner")).toHaveCount(0);
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth,
+          ),
+        ).toBe(true);
+        await page.screenshot({
+          path: `test-results/review-${theme}-${width}-${path.replaceAll("/", "_")}-${info.project.name}.png`,
+          fullPage: true,
+        });
+      }
+    }
+    await navigate(page, "/periodos/81");
+    const contrast = await page.evaluate(() => {
+      const probe = document.createElement("span");
+      document.body.append(probe);
+      const luminance = (color: string) => {
+        probe.style.color = color;
+        const rgb = getComputedStyle(probe)
+          .color.match(/[\d.]+/g)!
+          .slice(0, 3)
+          .map(Number)
+          .map((value) => {
+            const n = value / 255;
+            return n <= 0.04045 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4;
+          });
+        return rgb[0]! * 0.2126 + rgb[1]! * 0.7152 + rgb[2]! * 0.0722;
+      };
+      const pairs = [
+        ["--text", "--surface"],
+        ["--muted", "--bg"],
+        ["--muted", "--surface-subtle"],
+        ["--gold", "--gold-bg"],
+        ["--success", "--success-bg"],
+        ["--danger", "--danger-bg"],
+        ["--on-primary", "--primary"],
+        ["--on-danger", "--danger"],
+      ];
+      const results = pairs.map(([fg, bg]) => {
+        const a = luminance(`var(${fg})`),
+          b = luminance(`var(${bg})`);
+        return {
+          pair: `${fg}/${bg}`,
+          ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05),
+        };
+      });
+      for (const button of document.querySelectorAll(".period-tabs button")) {
+        const style = getComputedStyle(button);
+        const background =
+          style.backgroundColor === "rgba(0, 0, 0, 0)"
+            ? getComputedStyle(button.parentElement!).backgroundColor
+            : style.backgroundColor;
+        const a = luminance(style.color),
+          b = luminance(background);
+        results.push({
+          pair: `tab: ${button.textContent}`,
+          ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05),
+        });
+      }
+      probe.remove();
+      return results;
+    });
+    for (const item of contrast)
+      expect(item.ratio, `${theme}: ${item.pair}`).toBeGreaterThanOrEqual(4.5);
+    await page.setViewportSize({ width: 320, height: 420 });
+    await page.getByRole("button", { name: "Abrir menu" }).click();
+    const settings = page.getByRole("link", {
+      name: "Configurações",
+      exact: true,
+    });
+    await settings.scrollIntoViewIfNeeded();
+    await settings.click();
+    await expect(
+      page.getByRole("button", { name: "Abrir menu" }),
+    ).toBeFocused();
+  }
+});

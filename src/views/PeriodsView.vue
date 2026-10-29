@@ -43,9 +43,7 @@ async function open() {
 <template>
   <div class="page-header">
     <div>
-      <p class="eyebrow">CICLOS DA LOJA</p>
       <h1>Períodos financeiros</h1>
-      <p>Acompanhe cada ciclo, da abertura ao fechamento.</p>
     </div>
     <button @click="opening = true">
       <Plus aria-hidden="true" :size="18" />Abrir período

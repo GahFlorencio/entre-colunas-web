@@ -104,9 +104,7 @@ async function addCategory() {
 <template>
   <div class="page-header">
     <div>
-      <p class="eyebrow">PREFERÊNCIAS DA LOJA</p>
       <h1>Configurações</h1>
-      <p>Os valores e cadastros que orientam a gestão.</p>
     </div>
   </div>
   <div class="two-columns">

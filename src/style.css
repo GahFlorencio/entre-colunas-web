@@ -5,24 +5,37 @@
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  color: #16283d;
-  background: #f8f7f2;
+  color-scheme: light;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
   font-synthesis: none;
   font-size: 16px;
-  --bg: #f8f7f2;
-  --surface: #fff;
-  --text: #16283d;
-  --muted: #647080;
-  --border: #e3e5e6;
-  --gold: #977022;
-  --gold-bg: #f5eddb;
-  --navy: #011733;
-  --danger: #b53232;
-  --success: #276749;
-  --warning: #9a4b08;
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --surface-subtle: #f8fafc;
+  --text: #1c2b3e;
+  --muted: #536377;
+  --border: #dce3eb;
+  --control-border: #8391a3;
+  --gold: #805d21;
+  --gold-bg: #f6efdf;
+  --navy: #12263f;
+  --primary: #183652;
+  --on-primary: #ffffff;
+  --focus: #386c9c;
+  --danger: #b12f3c;
+  --on-danger: #ffffff;
+  --danger-bg: #fcecef;
+  --success: #21704c;
+  --success-bg: #eaf5ee;
+  --warning: #94520d;
   --payment-yellow: #806000;
-  --payment-orange: #b34b00;
-  --input: #fff;
+  --payment-orange: #a74709;
+  --input: #ffffff;
+  --shadow-card: 0 2px 5px rgb(18 38 63 / 3%);
+  --shadow-dialog: 0 24px 80px rgb(8 23 42 / 24%);
 }
 * {
   box-sizing: border-box;
@@ -54,8 +67,8 @@ button {
   border-radius: 10px;
   padding: 10px 16px;
   font-weight: 600;
-  background: var(--gold);
-  color: #fff;
+  background: var(--primary);
+  color: var(--on-primary);
 }
 button:disabled {
   opacity: 0.55;
@@ -76,8 +89,9 @@ a:focus-visible,
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
-textarea:focus-visible {
-  outline: 3px solid #bc943f;
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
 h1,
@@ -118,7 +132,7 @@ textarea {
   min-width: 0;
   min-height: 46px;
   padding: 11px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border);
   border-radius: 10px;
   background: var(--input);
   color: var(--text);
@@ -142,8 +156,8 @@ input::placeholder {
   color: var(--muted);
 }
 .primary {
-  background: var(--gold);
-  color: #fff;
+  background: var(--primary);
+  color: var(--on-primary);
 }
 .secondary {
   background: var(--surface);
@@ -152,7 +166,7 @@ input::placeholder {
 }
 .danger {
   background: var(--danger);
-  color: #fff;
+  color: var(--on-danger);
 }
 .text-button {
   background: transparent;
@@ -183,7 +197,7 @@ input::placeholder {
   font-weight: 600;
 }
 .app-shell {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
 }
 .sidebar {
@@ -195,6 +209,8 @@ input::placeholder {
   display: flex;
   flex-direction: column;
   padding: 28px 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   z-index: 30;
 }
 .brand {
@@ -221,7 +237,7 @@ input::placeholder {
 .nav-label {
   font-size: 10px;
   letter-spacing: 1.6px;
-  color: #8292a9;
+  color: #a4b3c6;
   margin: 48px 14px 16px;
 }
 .sidebar nav {
@@ -240,12 +256,14 @@ input::placeholder {
   font-size: 14px;
   font-weight: 500;
 }
-.sidebar nav a.active {
+.sidebar nav a.active,
+.sidebar-bottom > a.router-link-active {
   color: #edce8a;
   background: #1d2e42;
   box-shadow: inset 3px 0 #c29a4b;
 }
-.sidebar nav a:hover {
+.sidebar nav a:hover,
+.sidebar-bottom > a:hover {
   background: #172b43;
 }
 .sidebar-bottom {
@@ -283,7 +301,7 @@ input::placeholder {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   padding: 18px 36px;
-  min-height: 89px;
+  min-height: 80px;
 }
 .lodge-picker {
   display: flex;
@@ -296,7 +314,8 @@ input::placeholder {
   flex-shrink: 0;
 }
 .lodge-picker label {
-  gap: 3px;
+  min-width: 0;
+  gap: 0;
 }
 .lodge-picker label > span {
   font-size: 9px;
@@ -308,7 +327,7 @@ input::placeholder {
   background: transparent;
   font-weight: 650;
   font-size: 14px;
-  min-height: 28px;
+  min-height: 44px;
   padding: 0 20px 0 0;
   max-width: 330px;
 }
@@ -396,7 +415,7 @@ input::placeholder {
 }
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
   margin-bottom: 24px;
 }
@@ -440,7 +459,7 @@ input::placeholder {
 }
 .quick-actions {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 28px;
 }
@@ -526,11 +545,11 @@ input::placeholder {
 }
 .badge.success {
   color: var(--success);
-  background: #e7f2eb;
+  background: var(--success-bg);
 }
 .badge.danger {
   color: var(--danger);
-  background: #fce9e9;
+  background: var(--danger-bg);
 }
 .toolbar {
   display: flex;
@@ -612,7 +631,7 @@ input::placeholder {
 }
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
 }
 .form-grid .full {
@@ -628,7 +647,7 @@ input::placeholder {
 }
 .details {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 22px;
 }
 .details dt {
@@ -652,7 +671,7 @@ dialog {
   border-radius: 16px;
   background: var(--surface);
   color: var(--text);
-  box-shadow: 0 24px 80px #00102033;
+  box-shadow: var(--shadow-dialog);
 }
 dialog::backdrop {
   background: #00122688;
@@ -717,7 +736,7 @@ dialog::backdrop {
 .login-layout {
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .login-story {
   background: var(--navy);
@@ -842,7 +861,7 @@ dialog::backdrop {
   color: var(--muted);
   font-size: 13px;
   margin-bottom: 22px;
-  min-height: 36px;
+  min-height: 44px;
 }
 .positive {
   color: var(--success);
@@ -877,35 +896,29 @@ th {
 }
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0b1829;
-  --surface: #122238;
-  --text: #edf0f5;
-  --muted: #a3b1c3;
-  --border: #304057;
-  --gold: #d1af6a;
-  --gold-bg: #342d20;
-  --input: #0e1d30;
-  --danger: #f29494;
-  --success: #91d4ae;
-  --warning: #fdba74;
+  --bg: #0e1724;
+  --surface: #172334;
+  --surface-subtle: #1c2a3d;
+  --text: #e9eef5;
+  --muted: #a9b8ca;
+  --border: #324257;
+  --control-border: #73859b;
+  --gold: #dfbf7e;
+  --gold-bg: #352e23;
+  --primary: #dfbf7e;
+  --on-primary: #16263a;
+  --focus: #8abdf0;
+  --input: #121e2e;
+  --danger: #f29da8;
+  --on-danger: #34121a;
+  --danger-bg: #3b2530;
+  --success: #90d5b0;
+  --success-bg: #193a30;
+  --warning: #f4bd7d;
   --payment-yellow: #f4d35e;
   --payment-orange: #ffad66;
-  background: var(--bg);
-  color: var(--text);
-}
-[data-theme="dark"] .primary,
-[data-theme="dark"]
-  button:not(.secondary):not(.icon-button):not(.text-button):not(.scrim) {
-  color: #011733;
-}
-[data-theme="dark"] .sidebar-bottom > button {
-  color: #c0cada !important;
-}
-[data-theme="dark"] .badge.success {
-  background: #163e30;
-}
-[data-theme="dark"] .badge.danger {
-  background: #49282d;
+  --shadow-card: 0 2px 5px rgb(0 0 0 / 10%);
+  --shadow-dialog: 0 24px 80px rgb(0 0 0 / 45%);
 }
 [data-theme="dark"] .login-mark {
   content: url("/logo-dark.png");
@@ -1008,13 +1021,13 @@ th {
   }
   .lodge-picker select {
     max-width: 100%;
-    font-size: 12px;
+    font-size: 16px;
   }
   .lodge-picker label {
     min-width: 0;
   }
   .workspace main {
-    padding: 26px 20px 20px;
+    padding: 24px 16px 20px;
   }
   .page-header {
     align-items: flex-start;
@@ -1170,7 +1183,7 @@ th {
 }
 @media (max-width: 760px) {
   .stat-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .stat:first-child {
     grid-column: 1 / -1;
@@ -1223,4 +1236,66 @@ th {
 }
 .stat strong {
   overflow-wrap: anywhere;
+}
+
+/* Shared surface and interaction hierarchy across every view. */
+.section,
+.stat,
+.quick-action {
+  box-shadow: var(--shadow-card);
+}
+.section-head,
+th {
+  background: var(--surface-subtle);
+}
+button,
+a,
+input,
+select,
+textarea {
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+.secondary:hover:not(:disabled),
+.icon-button:hover:not(:disabled) {
+  background: var(--surface-subtle);
+  filter: none;
+}
+.sidebar .icon-button:hover {
+  background: #263b54;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--focus);
+}
+.stat,
+.page-header > div,
+.quick-action > div {
+  min-width: 0;
+}
+h1,
+h2 {
+  overflow-wrap: anywhere;
+}
+.stat strong,
+.row-end strong,
+td {
+  font-variant-numeric: tabular-nums;
+}
+.sidebar nav a.active:hover {
+  background: #263b54;
+}
+@media (max-height: 700px) {
+  .sidebar-note {
+    display: none;
+  }
+  .nav-label {
+    margin-top: 24px;
+  }
+  .sidebar-bottom {
+    padding-top: 12px;
+  }
 }
