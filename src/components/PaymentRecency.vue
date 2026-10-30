@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { date } from "@/lib/format";
-import {
-  paymentRecencyTone,
-  type PaymentRecency,
-} from "@/domain/members/payment-recency";
+import { type PaymentRecency } from "@/domain/members/payment-recency";
 const props = defineProps<{
   value?: PaymentRecency;
   loading?: boolean;
@@ -13,13 +10,7 @@ const props = defineProps<{
 const days = computed(() => props.value?.days_since_last_payment ?? null);
 </script>
 <template>
-  <div
-    :class="[
-      'payment-recency',
-      value ? paymentRecencyTone(days) : 'neutral',
-      { compact },
-    ]"
-  >
+  <div :class="['payment-recency', 'neutral', { compact }]">
     <span class="payment-recency-label" v-if="loading"
       >Consultando pagamentos…</span
     >
@@ -27,11 +18,15 @@ const days = computed(() => props.value?.days_since_last_payment ?? null);
       >Pagamentos indisponíveis</span
     >
     <template v-else>
-      <span class="payment-recency-label">{{
-        days === null
-          ? "Sem período ou pagamento registrado"
-          : `Sem pagamento há ${days} ${days === 1 ? "dia" : "dias"}`
-      }}</span>
+      <span
+        class="payment-recency-label"
+        title="Tempo desde a referência de pagamento; não indica vencimento ou atraso."
+        >{{
+          days === null
+            ? "Sem período ou pagamento registrado"
+            : `Sem pagamento há ${days} ${days === 1 ? "dia" : "dias"}`
+        }}</span
+      >
       <span v-if="value.reference_at && !compact" class="payment-recency-date"
         >{{
           value.reference_source === "first_period"

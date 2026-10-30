@@ -81,6 +81,7 @@ test("despesas compactas e PDF inclui todas as páginas filtradas", async ({
         payed: false,
         status: "active",
         programming_version: 1,
+        updated_at: "2026-10-29T12:00:00.000Z",
         installments: [],
       }));
       return send({
@@ -97,7 +98,11 @@ test("despesas compactas e PDF inclui todas as páginas filtradas", async ({
   await expect(page.locator(".expense-total strong")).toHaveText(
     /9.876.543,21/,
   );
-  await expect(page.locator(".ledger-entry")).toHaveCount(20);
+  if (testInfo.project.name === "desktop") {
+    await expect(page.locator(".expense-table tbody tr")).toHaveCount(20);
+  } else {
+    await expect(page.locator(".ledger-entry")).toHaveCount(20);
+  }
   for (const theme of ["light", "dark"]) {
     await page.evaluate(
       (theme) => document.documentElement.setAttribute("data-theme", theme),
@@ -111,14 +116,26 @@ test("despesas compactas e PDF inclui todas as páginas filtradas", async ({
           .locator(".expense-list")
           .evaluate((el) => el.getBoundingClientRect().right),
       ).toBeLessThanOrEqual(width);
-      const row = page.locator(".ledger-entry").first();
-      const title = await row.locator(".ledger-copy").boundingBox();
-      const amount = await row.locator(".ledger-value").boundingBox();
-      expect(title).not.toBeNull();
-      expect(amount).not.toBeNull();
-      if (width < 600) {
-        expect(amount!.y).toBeGreaterThan(title!.y);
-        expect(amount!.x).toBeCloseTo(title!.x, 0);
+      if (width >= 1280) {
+        await expect(page.locator(".expense-table-wrap")).toBeVisible();
+        await expect(page.locator(".expense-table tbody tr")).toHaveCount(20);
+        await expect(
+          page.getByRole("link", { name: /Despesa 1 · Manutenção/ }),
+        ).toBeVisible();
+        await expect(
+          page.locator(".expense-table .expense-value-heading"),
+        ).toBeVisible();
+      } else {
+        await expect(page.locator(".expense-mobile-list")).toBeVisible();
+        const row = page.locator(".ledger-entry").first();
+        const title = await row.locator(".ledger-copy").boundingBox();
+        const amount = await row.locator(".ledger-value").boundingBox();
+        expect(title).not.toBeNull();
+        expect(amount).not.toBeNull();
+        if (width < 600) {
+          expect(amount!.y).toBeGreaterThan(title!.y);
+          expect(amount!.x).toBeCloseTo(title!.x, 0);
+        }
       }
       expect(
         await page.evaluate(

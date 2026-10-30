@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import {
-  Wallet,
-  Receipt,
   HandCoins,
   UserPlus,
   Plus,
@@ -40,7 +38,7 @@ const summary = useQuery(
 const movements = useQuery(() =>
   listLodgeFinancialMovements(token.value, lodgeId.value, {
     page: 1,
-    perPage: 5,
+    perPage: 3,
   }),
 );
 const periods = useQuery(() =>
@@ -74,37 +72,47 @@ const today = new Intl.DateTimeFormat("pt-BR", {
       :error="summary.error.value"
       @retry="summary.refresh"
       ><div v-if="summary.data.value" class="stat-grid">
-        <article class="stat">
-          <div class="stat-top">
-            Caixa <Wallet aria-hidden="true" :size="20" />
-          </div>
+        <RouterLink
+          to="/operacoes"
+          class="stat cash-highlight"
+          aria-label="Consultar caixa administrativo"
+        >
+          <div class="stat-top">Caixa administrativo</div>
           <strong>{{ money(summary.data.value.cash_balance) }}</strong
-          ><small>Caixa administrativo atual</small>
-        </article>
-        <article class="stat">
-          <div class="stat-top">
-            A pagar <Receipt aria-hidden="true" :size="20" />
-          </div>
+          ><small>Entradas líquidas menos despesas pagas</small>
+        </RouterLink>
+        <RouterLink
+          to="/despesas?pagamento=pendente"
+          class="stat"
+          aria-label="Consultar despesas a pagar"
+        >
+          <div class="stat-top">A pagar</div>
           <strong>{{ money(summary.data.value.unpaid_expenses_total) }}</strong
           ><small>Total de despesas ainda não pagas</small>
-        </article>
-        <article class="stat">
-          <div class="stat-top">
-            A receber <HandCoins aria-hidden="true" :size="20" />
-          </div>
+        </RouterLink>
+        <RouterLink
+          to="/membros"
+          class="stat"
+          aria-label="Consultar posição financeira dos membros"
+        >
+          <div class="stat-top">A receber</div>
           <strong>{{
             money(summary.data.value.accounts_receivable_total)
           }}</strong
           ><small>Saldos devedores dos membros</small>
-        </article>
+        </RouterLink>
       </div></QueryState
     >
 
+    <p v-if="summary.data.value" class="summary-reference">
+      Totais da loja · calculados em
+      {{ date(summary.data.value.calculated_at) }}
+    </p>
     <div class="quick-actions">
       <RouterLink class="quick-action" to="/membros?novo=1"
         ><UserPlus aria-hidden="true" :size="21" />
         <div>
-          <strong>Novo membro</strong>
+          <strong>Membro</strong>
         </div>
         <ArrowUpRight
           aria-hidden="true"
@@ -113,16 +121,16 @@ const today = new Intl.DateTimeFormat("pt-BR", {
       ><RouterLink class="quick-action" to="/despesas?novo=1"
         ><Plus aria-hidden="true" :size="21" />
         <div>
-          <strong>Nova despesa</strong>
+          <strong>Despesas</strong>
         </div>
         <ArrowUpRight
           aria-hidden="true"
           :size="16"
           style="margin-left: auto" /></RouterLink
-      ><RouterLink class="quick-action" to="/operacoes?novo=1"
+      ><RouterLink class="quick-action" to="/operacoes?novo=1&tipo=payment"
         ><HandCoins aria-hidden="true" :size="21" />
         <div>
-          <strong>Nova entrada</strong>
+          <strong>Receber</strong>
         </div>
         <ArrowUpRight aria-hidden="true" :size="16" style="margin-left: auto"
       /></RouterLink>
@@ -182,9 +190,9 @@ const today = new Intl.DateTimeFormat("pt-BR", {
   min-width: 0;
 }
 .overview-header {
-  margin-bottom: 20px;
   flex-wrap: wrap;
-  gap: 8px 16px;
+  gap: 8px;
+  margin-bottom: 20px;
 }
 .overview-header h1 {
   margin: 0;
@@ -192,69 +200,86 @@ const today = new Intl.DateTimeFormat("pt-BR", {
 .stat-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
-.stat {
+.stat,
+.stat:first-child {
   min-width: 0;
-  padding: 16px 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
 }
 .stat:first-child {
-  grid-column: 1 / -1;
-  padding: 16px;
+  grid-column: 1/-1;
+  background: var(--navy);
+  color: #fff;
+  border-color: var(--navy);
 }
 .stat-top {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   gap: 8px;
-}
-.stat-top svg {
-  flex-shrink: 0;
+  font-size: 13px;
 }
 .stat strong {
-  font-size: clamp(18px, 4.5vw, 26px);
-  letter-spacing: -0.5px;
-  font-variant-numeric: tabular-nums;
+  font-size: clamp(18px, 4.5vw, 28px);
+  letter-spacing: -0.7px;
   margin-bottom: 8px;
 }
 .stat:first-child strong {
-  font-size: 30px;
+  font-size: clamp(28px, 7vw, 38px);
 }
 .stat small {
   display: block;
-  line-height: 1.5;
   font-size: 12px;
+  line-height: 1.5;
+}
+.stat:first-child small {
+  color: #c8d5e5;
+}
+.stat:focus-visible {
+  outline-offset: 3px;
+}
+.stat:hover {
+  border-color: var(--gold);
+}
+.summary-reference {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--muted);
 }
 .quick-actions {
-  gap: 0;
+  gap: 8px;
   margin-bottom: 24px;
-  border-bottom: 1px solid var(--border);
 }
 .quick-action {
   min-width: 0;
-  min-height: 44px;
-  padding: 12px;
-  gap: 8px;
   background: transparent;
   border: 0;
-  border-radius: 0;
   box-shadow: none;
+  padding: 12px 4px;
+  gap: 8px;
+}
+.quick-action strong {
+  margin: 0;
+  font-size: 12px;
+}
+.quick-action > svg {
+  flex-shrink: 0;
 }
 .quick-action:hover {
   background: var(--surface-subtle);
 }
-.quick-action + .quick-action {
-  border-left: 1px solid var(--border);
-}
-.quick-action strong {
-  margin: 0;
-}
 .two-columns {
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 16px;
-  align-items: start;
 }
 .section {
+  width: 100%;
   min-width: 0;
-  margin-bottom: 0;
+  margin: 0;
+}
+.current-period {
+  order: -1;
 }
 .section-head {
   padding: 12px 16px;
@@ -269,6 +294,7 @@ const today = new Intl.DateTimeFormat("pt-BR", {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  font-size: 13px;
 }
 .overview-movements {
   padding: 0 16px 8px;
@@ -277,37 +303,127 @@ const today = new Intl.DateTimeFormat("pt-BR", {
   padding: 16px;
 }
 .current-period-title {
-  font-size: 20px;
+  font-size: 24px;
   margin: 12px 0 8px;
-  overflow-wrap: anywhere;
 }
 .current-period .section-body > p {
   margin-bottom: 8px;
 }
 @media (min-width: 768px) {
   .stat-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr));
   }
   .stat:first-child {
     grid-column: auto;
   }
   .stat,
   .stat:first-child {
-    padding: 20px;
+    padding: 24px;
   }
-  .stat strong,
+  .stat strong {
+    font-size: clamp(20px, 2.5vw, 30px);
+  }
   .stat:first-child strong {
-    font-size: clamp(22px, 2.5vw, 30px);
+    font-size: clamp(28px, 3vw, 38px);
   }
   .quick-action {
     flex-direction: row;
     align-items: center;
-    padding: 16px;
+  }
+  .two-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    align-items: start;
   }
 }
-@media (min-width: 1024px) {
-  .two-columns {
-    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+@media (max-width: 767px) {
+  .stat-grid {
+    gap: 0;
+  }
+  .stat:first-child {
+    min-height: 125px;
+    margin-bottom: 12px;
+    border-radius: 13px;
+  }
+  .stat:not(:first-child) {
+    background: var(--surface-subtle);
+    border: 0;
+    border-radius: 0;
+    padding: 14px 12px;
+  }
+  .stat:nth-child(2) {
+    border-radius: 13px 0 0 13px;
+    border-right: 1px solid var(--border);
+  }
+  .stat:nth-child(3) {
+    border-radius: 0 13px 13px 0;
+  }
+  .stat-top {
+    margin-bottom: 4px;
+  }
+  .stat strong {
+    overflow-wrap: anywhere;
+  }
+  .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 12px;
+  }
+  .quick-action {
+    flex-direction: column;
+    justify-content: center;
+    padding: 8px 0;
+    gap: 4px;
+  }
+  .quick-action:last-child {
+    order: -2;
+  }
+  .quick-action:nth-child(2) {
+    order: -1;
+  }
+  .quick-action > svg:last-child {
+    display: none;
+  }
+  .section {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+  .section-head {
+    background: transparent;
+    border: 0;
+  }
+  .current-period {
+    border-radius: 0;
+  }
+  .section-head,
+  .overview-movements {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .current-period {
+    border-block: 1px solid var(--border);
+    padding: 8px 0;
+  }
+  .current-period .section-head {
+    display: none;
+  }
+  .current-period .section-body {
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+  }
+  .current-period-title {
+    margin: 0;
+    font-size: 16px;
+  }
+  .current-period .section-body > p {
+    display: none;
+  }
+  .current-period .text-button {
+    margin-left: auto;
   }
 }
 </style>

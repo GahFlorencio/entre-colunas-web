@@ -137,6 +137,13 @@ function close() {
       </button>
     </div>
   </header>
+  <label class="member-search"
+    >Buscar membro<input
+      v-model="search"
+      type="search"
+      placeholder="Nome do membro"
+      @input="page = 1"
+  /></label>
   <div
     v-if="filterCount"
     class="members-applied"
@@ -201,8 +208,8 @@ function close() {
         class="member-columns"
         aria-hidden="true"
       >
-        <span>Membro</span><span>Saldo atual</span><span>A pagar</span
-        ><span>Pagamento</span><span></span>
+        <span>Membro</span><span>Posição financeira</span
+        ><span>Referência de pagamento</span><span></span>
       </div>
       <RouterLink
         v-for="m in query.data.value?.results"
@@ -224,23 +231,28 @@ function close() {
           </div>
         </div>
         <div class="member-amount member-current">
-          <span class="amount-label">Saldo atual</span>
+          <span class="amount-label">{{
+            balances.has(m.id)
+              ? balances.get(m.id)!.balance > 0
+                ? "Crédito"
+                : balances.get(m.id)!.payable > 0
+                  ? "A pagar"
+                  : "Sem saldo a pagar"
+              : "Posição financeira"
+          }}</span>
           <strong
             v-if="balances.has(m.id)"
             :class="
               balances.get(m.id)!.balance < 0 ? 'amount-debt' : 'amount-credit'
             "
-            >{{ money(balances.get(m.id)!.balance) }}</strong
+            >{{
+              money(
+                balances.get(m.id)!.balance > 0
+                  ? balances.get(m.id)!.balance
+                  : balances.get(m.id)!.payable,
+              )
+            }}</strong
           >
-          <span v-else class="amount-state">{{
-            accounts.loading.value ? "Carregando…" : "Indisponível"
-          }}</span>
-        </div>
-        <div class="member-amount member-payable">
-          <span class="amount-label">A pagar</span>
-          <strong v-if="balances.has(m.id)">{{
-            money(balances.get(m.id)!.payable)
-          }}</strong>
           <span v-else class="amount-state">{{
             accounts.loading.value ? "Carregando…" : "Indisponível"
           }}</span>
@@ -383,7 +395,7 @@ function close() {
 .member-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 16px;
-  grid-template-areas: "identity chevron" "balance balance" "payable payable" "recency recency";
+  grid-template-areas: "identity chevron" "balance balance" "recency recency";
   align-items: center;
   gap: 8px 12px;
   padding: 18px 16px;
@@ -510,23 +522,23 @@ function close() {
 @media (min-width: 600px) {
   .member-row {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 16px;
-    grid-template-areas: "identity recency chevron" "balance payable chevron";
+    grid-template-areas: "identity recency chevron" "balance balance chevron";
     gap: 14px 24px;
   }
   .member-recency {
     justify-self: end;
   }
 }
-@media (min-width: 1280px) {
+@media (min-width: 1024px) {
   .member-row,
   .member-columns {
     grid-template-columns:
-      minmax(0, 2fr) minmax(0, 1.15fr) minmax(0, 1.15fr)
+      minmax(0, 2fr) minmax(0, 1.3fr)
       minmax(0, 1.5fr) 16px;
     gap: 20px;
   }
   .member-row {
-    grid-template-areas: "identity balance payable recency chevron";
+    grid-template-areas: "identity balance recency chevron";
   }
   .member-columns {
     display: grid;
@@ -545,16 +557,6 @@ function close() {
   }
   .member-amount {
     justify-content: flex-end;
-  }
-  .member-amount .amount-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
   .member-recency {
     justify-self: start;
@@ -631,6 +633,18 @@ function close() {
   }
   .members-header h1 svg {
     display: none;
+  }
+}
+.member-search {
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+@media (min-width: 1024px) {
+  .member-search {
+    max-width: 420px;
+  }
+  .member-row {
+    padding-block: 14px;
   }
 }
 </style>

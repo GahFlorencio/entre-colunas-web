@@ -14,7 +14,7 @@ import {
   UserRoundCheck,
 } from "@lucide/vue";
 import { token, lodgeId } from "@/lib/session";
-import { date, message, money } from "@/lib/format";
+import { calendarDate, message, money } from "@/lib/format";
 import { getMember, archiveMember, deleteMember } from "@/domain/members/api";
 import { getMemberAccountBalance } from "@/domain/member-account/api";
 import { useQuery } from "@/lib/query";
@@ -163,12 +163,21 @@ async function act() {
                   <Ellipsis :size="22" aria-hidden="true" />
                 </summary>
                 <div class="member-menu-items">
-                  <button class="secondary" @click="chooseAction('edit')">
+                  <button
+                    class="secondary"
+                    aria-label="Editar"
+                    @click="chooseAction('edit')"
+                  >
                     <Pencil :size="17" aria-hidden="true" />Editar</button
-                  ><button class="secondary" @click="chooseAction('archive')">
+                  ><button
+                    class="secondary"
+                    aria-label="Arquivar"
+                    @click="chooseAction('archive')"
+                  >
                     <Archive :size="17" aria-hidden="true" />Arquivar</button
                   ><button
                     class="secondary delete-action"
+                    aria-label="Excluir"
                     @click="chooseAction('delete')"
                   >
                     <Trash2 :size="17" aria-hidden="true" />Excluir
@@ -177,30 +186,35 @@ async function act() {
               </details>
             </div>
           </div>
-          <dl class="member-facts">
-            <div>
-              <dt><Phone :size="14" aria-hidden="true" />Telefone</dt>
-              <dd>{{ formattedPhone }}</dd>
-            </div>
-            <div>
-              <dt><CalendarDays :size="14" aria-hidden="true" />Ingresso</dt>
-              <dd>{{ date(query.data.value.lodge_beggin) }}</dd>
-            </div>
-            <div>
-              <dt><Utensils :size="14" aria-hidden="true" />Ágape</dt>
-              <dd>
-                {{ query.data.value.agape_participant ? "Sim" : "Não" }}
-              </dd>
-            </div>
-            <div>
-              <dt><UserRoundCheck :size="14" aria-hidden="true" />Situação</dt>
-              <dd>
-                <span :class="['member-status', statusTone]">{{
-                  query.data.value.status.label
-                }}</span>
-              </dd>
-            </div>
-          </dl>
+          <details class="member-data">
+            <summary>Dados</summary>
+            <dl class="member-facts">
+              <div>
+                <dt><Phone :size="14" aria-hidden="true" />Telefone</dt>
+                <dd>{{ formattedPhone }}</dd>
+              </div>
+              <div>
+                <dt><CalendarDays :size="14" aria-hidden="true" />Ingresso</dt>
+                <dd>{{ calendarDate(query.data.value.lodge_beggin) }}</dd>
+              </div>
+              <div>
+                <dt><Utensils :size="14" aria-hidden="true" />Ágape</dt>
+                <dd>
+                  {{ query.data.value.agape_participant ? "Sim" : "Não" }}
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <UserRoundCheck :size="14" aria-hidden="true" />Situação
+                </dt>
+                <dd>
+                  <span :class="['member-status', statusTone]">{{
+                    query.data.value.status.label
+                  }}</span>
+                </dd>
+              </div>
+            </dl>
+          </details>
           <div
             class="member-finances"
             role="group"
@@ -322,6 +336,21 @@ async function act() {
 </template>
 
 <style scoped>
+.member-data > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--gold);
+  font-weight: 600;
+}
+.member-data > summary:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+.member-data {
+  margin-block: 8px;
+}
 .member-detail {
   min-width: 0;
 }
@@ -399,7 +428,7 @@ async function act() {
   height: 44px;
   display: grid;
   place-items: center;
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   cursor: pointer;
   color: var(--text);
 }
@@ -513,22 +542,27 @@ async function act() {
 .member-tabs {
   display: flex;
   border-bottom: 1px solid var(--border);
-  gap: 24px;
+  gap: 8px;
   margin-bottom: 18px;
+  padding: 4px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
 }
 .member-tabs button.secondary {
   flex: 0 1 auto;
   min-height: 44px;
-  border-radius: 0;
-  padding: 8px 2px;
+  border-radius: var(--radius-control);
+  padding: 8px 14px;
   color: var(--muted);
   border: 0;
   background: transparent;
-  border-bottom: 3px solid transparent;
+  border-bottom: 0;
 }
 .member-tabs button[aria-selected="true"] {
   color: var(--text);
-  border-bottom-color: var(--gold);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
 }
 @media (min-width: 768px) {
   .member-profile {

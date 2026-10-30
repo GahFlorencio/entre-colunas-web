@@ -117,8 +117,8 @@ async function addCategory() {
           @retry="query.refresh"
           ><form @submit.prevent="save">
             <p class="muted" style="font-size: 13px">
-              Os valores vigentes serão considerados pela API ao calcular o
-              fechamento.
+              Estes valores serão usados no cálculo do fechamento. Períodos já
+              fechados preservam seus valores.
             </p>
             <p v-if="error" class="alert" role="alert">{{ error }}</p>
             <div class="form-grid">

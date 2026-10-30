@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref, computed } from "vue";
 import { token, lodgeId } from "@/lib/session";
-import { message } from "@/lib/format";
+import { message, money } from "@/lib/format";
 import { allCategories, allEligibleMembers } from "@/lib/catalogs";
 import { useQuery } from "@/lib/query";
 import { listExpenseTypes } from "@/domain/expenses/api";
@@ -10,6 +10,7 @@ import {
   getFinancialPeriod,
 } from "@/domain/financial-periods/api";
 import type { Expense } from "@/domain/expenses/types";
+import { ApiError } from "@/domain/auth/api";
 import {
   buildCreateExpensePayload,
   buildExpenseCorrection,
@@ -20,9 +21,10 @@ import { financialWrite, lodgePath } from "@/lib/financial-write";
 import QueryState from "./QueryState.vue";
 import Modal from "./Modal.vue";
 const props = defineProps<{ expense?: Expense; structureAllowed?: boolean }>();
-const emit = defineEmits<{ close: []; saved: [] }>();
+const emit = defineEmits<{ close: []; saved: []; reload: [] }>();
 const busy = ref(false),
-  error = ref("");
+  error = ref(""),
+  staleRevision = ref(false);
 const form = reactive({
   label: props.expense?.label || "",
   total_value: props.expense?.total_value.toString() || "",
@@ -65,6 +67,60 @@ const typeSlug = computed(
     props.expense?.expense_type_slug ||
     "",
 );
+const correctionChanges = computed(() => {
+  const expense = props.expense;
+  if (!expense) return [];
+  const category =
+    catalogs.data.value?.categories.results.find(
+      (item) => item.id === form.category,
+    )?.label || expense.expense_category_slug;
+  const type =
+    catalogs.data.value?.types.find((item) => item.id === form.type)?.label ||
+    expense.expense_type_slug;
+  const owner =
+    catalogs.data.value?.members.results.find((item) => item.id === form.member)
+      ?.name || (form.member ? `Membro #${form.member}` : "Não definido");
+  const beforeOwner =
+    catalogs.data.value?.members.results.find(
+      (item) => item.id === expense.owner_expense_member_id,
+    )?.name ||
+    (expense.owner_expense_member_id
+      ? `Membro #${expense.owner_expense_member_id}`
+      : "Não definido");
+  const changes = [
+    ["Descrição", expense.label, form.label.trim()],
+    [
+      "Valor total original",
+      money(expense.total_value),
+      money(Number(form.total_value)),
+    ],
+    [
+      "Parcelas",
+      String(expense.parcels),
+      String(typeSlug.value === "geral" ? 1 : form.parcels),
+    ],
+    ["Tipo", expense.expense_type_slug, type],
+    ["Categoria", expense.expense_category_slug, category],
+    [
+      "Distribuição",
+      expense.ratio_to_all === null
+        ? "—"
+        : expense.ratio_to_all
+          ? "Ativos e afastados"
+          : "Somente ativos",
+      typeSlug.value === "rateio"
+        ? form.ratio
+          ? "Ativos e afastados"
+          : "Somente ativos"
+        : "—",
+    ],
+    ["Responsável", beforeOwner, typeSlug.value === "individual" ? owner : "—"],
+  ];
+  return changes.filter(([, before, after]) => before !== after);
+});
+const correctionChangesStructure = computed(() =>
+  correctionChanges.value.some(([field]) => field !== "Descrição"),
+);
 async function save() {
   busy.value = true;
   error.value = "";
@@ -83,7 +139,11 @@ async function save() {
     const body = props.expense
       ? props.structureAllowed
         ? buildExpenseCorrection(props.expense, draft, form.justification)
-        : { label: form.label.trim(), justification: form.justification.trim() }
+        : {
+            label: form.label.trim(),
+            justification: form.justification.trim(),
+            expected_updated_at: props.expense.updated_at,
+          }
       : buildCreateExpensePayload(draft);
     await financialWrite(
       lodgePath(
@@ -96,6 +156,7 @@ async function save() {
     );
     emit("saved");
   } catch (e) {
+    staleRevision.value = e instanceof ApiError && e.status === 409;
     error.value =
       e instanceof ExpenseRuleError
         ? Object.values(e.fields).join(" ")
@@ -116,6 +177,43 @@ async function save() {
       @retry="catalogs.refresh"
       ><form @submit.prevent="save">
         <p v-if="error" class="alert" role="alert">{{ error }}</p>
+        <button
+          v-if="staleRevision"
+          class="secondary revision-reload"
+          type="button"
+          :disabled="busy"
+          @click="emit('reload')"
+        >
+          Descartar correção e atualizar
+        </button>
+        <section
+          v-if="expense"
+          class="correction-review"
+          aria-label="Revisão da correção"
+        >
+          <strong>Antes e depois</strong>
+          <p v-if="!correctionChanges.length" class="muted">
+            Nenhuma alteração nos campos atuais.
+          </p>
+          <dl v-else>
+            <div
+              v-for="[field, before, after] in correctionChanges"
+              :key="field"
+            >
+              <dt>{{ field }}</dt>
+              <dd>
+                <span>{{ before || "—" }}</span
+                ><span aria-hidden="true">→</span
+                ><strong>{{ after || "—" }}</strong>
+              </dd>
+            </div>
+          </dl>
+          <p v-if="correctionChangesStructure" class="notice">
+            Uma alteração estrutural gera compensação do débito atual e cria uma
+            nova programação na conta da loja. Confira também as parcelas
+            exibidas após salvar.
+          </p>
+        </section>
         <p v-if="expense && !structureAllowed" class="notice">
           Esta despesa já possui lançamentos ou cancelamentos. Você pode
           corrigir a descrição.
@@ -232,3 +330,45 @@ async function save() {
     ></Modal
   >
 </template>
+<style scoped>
+.correction-review {
+  margin: 0 0 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-subtle);
+}
+.correction-review > strong {
+  display: block;
+  margin-bottom: 10px;
+}
+.correction-review dl {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.correction-review dl > div {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.7fr) minmax(0, 1.3fr);
+  gap: 8px;
+}
+.correction-review dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.correction-review dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.correction-review dd strong {
+  font-weight: 650;
+}
+.correction-review .notice {
+  margin: 12px 0 0;
+  font-size: 12px;
+}
+</style>

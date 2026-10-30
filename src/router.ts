@@ -4,6 +4,11 @@ export const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
+      path: "/caixas/:cash(agape|hospitalaria)",
+      component: () => import("./views/AuxiliaryCashView.vue"),
+      meta: { title: "Caixas independentes" },
+    },
+    {
       path: "/admin",
       component: () => import("./views/AdminView.vue"),
       meta: { title: "Administração", admin: true },
@@ -62,6 +67,11 @@ export const router = createRouter({
       path: "/operacoes/:id",
       component: () => import("./views/OperationView.vue"),
       meta: { title: "Detalhes da operação" },
+    },
+    {
+      path: "/relatorios",
+      component: () => import("./views/ReportsView.vue"),
+      meta: { title: "Extratos e relatórios" },
     },
     {
       path: "/extrato",

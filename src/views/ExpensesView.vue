@@ -30,7 +30,7 @@ const route = useRoute(),
   router = useRouter();
 const showForm = ref(route.query.novo === "1"),
   page = ref(1),
-  paid = ref(""),
+  paid = ref(route.query.pagamento === "pendente" ? "false" : ""),
   status = ref(""),
   category = ref(""),
   type = ref(""),
@@ -310,14 +310,57 @@ async function exportPdf() {
         <span v-if="filterCount">{{ filterCount }}</span>
       </button>
     </div>
+    <p class="expense-payment-note">
+      “Pagas” e “A pagar” são indicadores administrativos; marcar uma despesa
+      como paga atualiza o caixa administrativo, sem criar movimento no extrato
+      contábil.
+    </p>
     <QueryState
       :loading="query.loading.value"
       :error="query.error.value"
       :empty="!query.data.value?.results.length"
       @retry="query.refresh"
     >
-      <div class="expense-movements">
+      <div class="expense-movements expense-mobile-list">
         <MovementList :items="movementItems" :show-dates="false" />
+      </div>
+      <div class="expense-table-wrap" aria-label="Tabela de despesas">
+        <table class="expense-table">
+          <thead>
+            <tr>
+              <th scope="col">Despesa</th>
+              <th scope="col">Tipo</th>
+              <th scope="col">Programação</th>
+              <th scope="col">Situação</th>
+              <th scope="col">Pagamento</th>
+              <th scope="col" class="expense-value-heading">Valor original</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="expense in query.data.value?.results" :key="expense.id">
+              <td>
+                <RouterLink
+                  class="expense-name"
+                  :to="`/despesas/${expense.id}`"
+                >
+                  {{ expense.label }}
+                </RouterLink>
+                <small>{{
+                  categoryNames[expense.expense_category_id] ||
+                  expense.expense_category_slug
+                }}</small>
+              </td>
+              <td>{{ expenseTypeLabel(expense.expense_type_slug) }}</td>
+              <td>
+                {{ expense.parcels }}
+                {{ expense.parcels === 1 ? "parcela" : "parcelas" }}
+              </td>
+              <td>{{ expenseStatusLabel(expense.status) }}</td>
+              <td>{{ expensePaymentLabel(expense) }}</td>
+              <td class="expense-value">{{ money(expense.total_value) }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </QueryState>
     <p v-if="query.data.value" class="expense-count muted">
@@ -507,6 +550,78 @@ async function exportPdf() {
 .expense-movements {
   padding: 0 16px;
 }
+.expense-table-wrap {
+  display: none;
+}
+.expense-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13px;
+}
+.expense-table th,
+.expense-table td {
+  padding: 13px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+.expense-table th {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.expense-table th:first-child,
+.expense-table td:first-child {
+  width: 34%;
+  padding-left: 16px;
+}
+.expense-table th:nth-child(2) {
+  width: 13%;
+}
+.expense-table th:nth-child(3) {
+  width: 13%;
+}
+.expense-table th:nth-child(4) {
+  width: 14%;
+}
+.expense-table th:nth-child(5) {
+  width: 14%;
+}
+.expense-table .expense-value-heading,
+.expense-table .expense-value {
+  width: 16%;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.expense-name {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+}
+.expense-name:hover {
+  color: var(--gold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.expense-name:focus-visible {
+  outline: 2px solid var(--focus, var(--gold));
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+.expense-table td:first-child small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
 .expense-count {
   padding: 12px 16px 0;
   margin: 0;
@@ -516,12 +631,28 @@ async function exportPdf() {
   font-size: 12px;
   margin: 8px 0;
 }
+.expense-payment-note {
+  margin: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
 @media (min-width: 768px) {
   .expense-filter-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .payment-tabs {
     max-width: 360px;
+  }
+}
+@media (min-width: 1280px) {
+  .expense-mobile-list {
+    display: none;
+  }
+  .expense-table-wrap {
+    display: block;
   }
 }
 @media (max-width: 350px) {

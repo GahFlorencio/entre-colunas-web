@@ -383,7 +383,7 @@ async function exportPdf() {
   margin-bottom: 12px;
   border: 1px solid var(--border);
   background: var(--surface);
-  border-radius: 10px;
+  border-radius: var(--radius-control);
 }
 .period-addition label {
   font-size: 13px;
@@ -484,8 +484,9 @@ async function exportPdf() {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
-  background: var(--border);
-  border-radius: 10px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   padding: 4px;
   margin: 12px 0 16px;
 }
@@ -494,7 +495,7 @@ async function exportPdf() {
   color: var(--muted);
   min-height: 44px;
   font-size: 13px;
-  border-radius: 7px;
+  border-radius: var(--radius-control);
 }
 .period-tabs button.selected {
   background: var(--surface);

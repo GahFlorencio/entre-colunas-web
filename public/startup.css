@@ -1,0 +1,157 @@
+:root {
+  --boot-bg: #f3f5f8;
+  --boot-surface: #fff;
+  --boot-line: #e3e9ef;
+  --boot-text: #10243a;
+  color-scheme: light;
+  background: var(--boot-bg);
+}
+:root[data-theme="dark"] {
+  --boot-bg: #101d2b;
+  --boot-surface: #192b3d;
+  --boot-line: #2a3c4e;
+  --boot-text: #edf2f7;
+  color-scheme: dark;
+}
+body {
+  margin: 0;
+}
+.boot {
+  min-height: 100dvh;
+  background: var(--boot-bg);
+  color: var(--boot-text);
+  font-family: system-ui, sans-serif;
+}
+.boot * {
+  box-sizing: border-box;
+}
+.boot-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 76px;
+  padding: 16px 24px;
+  color: #fff;
+  background: #10243a;
+}
+.boot-brand img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+.boot-brand strong {
+  font:
+    600 20px Georgia,
+    serif;
+}
+.boot-content {
+  max-width: 1200px;
+  padding: 24px 16px;
+  margin: auto;
+}
+.boot-bar {
+  display: block;
+  height: 12px;
+  width: 65%;
+  border-radius: 6px;
+  background: var(--boot-line);
+}
+.boot-title {
+  height: 26px;
+  width: 42%;
+  margin-bottom: 24px;
+}
+.boot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.boot-card {
+  background: var(--boot-surface);
+  padding: 20px;
+  border-radius: 13px;
+  min-height: 100px;
+}
+.boot-card:first-child {
+  grid-column: 1 / -1;
+  min-height: 125px;
+  background: #10243a;
+}
+.boot-card:first-child .boot-bar {
+  background: #294058;
+}
+.boot-value {
+  width: 85%;
+  height: 28px;
+  margin-top: 16px;
+}
+.boot-rows {
+  margin-top: 24px;
+}
+.boot-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--boot-line);
+}
+.boot-circle {
+  flex: 0 0 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--boot-line);
+}
+.boot-copy {
+  flex: 1;
+  min-width: 0;
+}
+.boot-copy .boot-bar + .boot-bar {
+  width: 40%;
+  margin-top: 12px;
+}
+.boot-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.boot-bar,
+.boot-circle {
+  animation: boot-pulse 1.8s ease-in-out infinite;
+}
+@keyframes boot-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boot-bar,
+  .boot-circle {
+    animation: none;
+  }
+}
+@media (min-width: 1024px) {
+  .boot {
+    padding-left: 242px;
+  }
+  .boot-brand {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 242px;
+    height: auto;
+    align-items: flex-start;
+    padding-top: 32px;
+  }
+  .boot-content {
+    padding: 112px 36px 36px;
+  }
+  .boot-grid {
+    grid-template-columns: 2fr 1fr 1fr;
+  }
+  .boot-card:first-child {
+    grid-column: auto;
+  }
+}

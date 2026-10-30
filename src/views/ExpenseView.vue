@@ -4,9 +4,11 @@ import { useRoute } from "vue-router";
 import { ArrowLeft, Pencil } from "@lucide/vue";
 import { token, lodgeId } from "@/lib/session";
 import { money, label, message } from "@/lib/format";
+import { collectPages } from "@/lib/catalogs";
 import { useQuery } from "@/lib/query";
 import {
   getExpense,
+  listExpenseCategories,
   getFinancialPeriod,
   updateExpensePayed,
 } from "@/domain/expenses/api";
@@ -35,6 +37,21 @@ const query = useQuery(async () => {
   );
   return { expense, period };
 });
+const categories = useQuery(() =>
+  collectPages((page) =>
+    listExpenseCategories(token.value, lodgeId.value, "all", {
+      page,
+      perPage: 100,
+    }),
+  ),
+);
+const categoryName = computed(
+  () =>
+    categories.data.value?.results.find(
+      (category) =>
+        category.id === query.data.value?.expense.expense_category_id,
+    )?.label,
+);
 const actions = computed(() =>
   query.data.value
     ? getExpenseActions(
@@ -47,7 +64,8 @@ const numbers = computed(() =>
   scheduledInstallmentNumbers(query.data.value?.expense.installments || []),
 );
 async function togglePaid() {
-  if (!query.data.value) return;
+  if (!query.data.value || query.data.value.expense.status === "cancelled")
+    return;
   busy.value = true;
   error.value = "";
   try {
@@ -124,15 +142,27 @@ async function cancel() {
           </div>
           <div>
             <dt>Tipo</dt>
-            <dd>{{ query.data.value.expense.expense_type_slug }}</dd>
+            <dd>{{ label(query.data.value.expense.expense_type_slug) }}</dd>
           </div>
           <div>
             <dt>Categoria</dt>
-            <dd>{{ query.data.value.expense.expense_category_slug }}</dd>
+            <dd>
+              {{
+                categoryName || query.data.value.expense.expense_category_slug
+              }}
+            </dd>
           </div>
           <div>
-            <dt>Pagamento</dt>
-            <dd>{{ query.data.value.expense.payed ? "Paga" : "A pagar" }}</dd>
+            <dt>Indicador de pagamento</dt>
+            <dd>
+              {{
+                query.data.value.expense.status === "cancelled"
+                  ? "Não se aplica · cancelada"
+                  : query.data.value.expense.payed
+                    ? "Marcada como paga"
+                    : "Marcada como a pagar"
+              }}
+            </dd>
           </div>
           <div>
             <dt>Período de origem</dt>
@@ -147,11 +177,23 @@ async function cancel() {
             <dd>{{ query.data.value.expense.programming_version }}</dd>
           </div>
         </dl>
+        <p
+          v-if="query.data.value.expense.status !== 'cancelled'"
+          class="payment-flag-note"
+        >
+          Esta marcação atualiza o caixa administrativo. Ela não cria nem altera
+          movimentos no extrato contábil.
+        </p>
         <div class="form-actions">
-          <button class="secondary" :disabled="busy" @click="togglePaid">
+          <button
+            v-if="query.data.value.expense.status !== 'cancelled'"
+            class="secondary"
+            :disabled="busy"
+            @click="togglePaid"
+          >
             {{
               query.data.value.expense.payed
-                ? "Marcar como não paga"
+                ? "Marcar como a pagar"
                 : "Marcar como paga"
             }}</button
           ><button
@@ -192,7 +234,11 @@ async function cancel() {
         :expense="query.data.value.expense"
         :structure-allowed="actions?.editStructure"
         @close="edit = false"
-        @saved="edit = false" /></template></QueryState
+        @saved="edit = false"
+        @reload="
+          edit = false;
+          query.refresh();
+        " /></template></QueryState
   ><Modal
     v-if="cancelling"
     title="Cancelar despesa ou parcelas"
@@ -234,3 +280,14 @@ async function cancel() {
     </form></Modal
   >
 </template>
+<style scoped>
+.payment-flag-note {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  background: var(--surface-subtle);
+  color: var(--muted);
+  border-left: 3px solid var(--gold);
+  font-size: 13px;
+  line-height: 1.5;
+}
+</style>

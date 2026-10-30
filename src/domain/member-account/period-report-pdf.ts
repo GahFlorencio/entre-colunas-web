@@ -64,7 +64,7 @@ export function buildMemberPeriodPdf(
   );
   text(
     report.status === "open"
-      ? "Prévia oficial, sujeita a alterações até o fechamento. Não constitui cobrança já lançada."
+      ? "Prévia do período, sujeita a alterações até o fechamento. Não constitui cobrança já lançada."
       : "Valores e nome do membro preservados no fechamento.",
     false,
     8,

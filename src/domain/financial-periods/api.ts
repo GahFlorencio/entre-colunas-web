@@ -12,6 +12,7 @@ import type {
   FinancialPeriodPage,
   FinancialPeriodPreview,
   PreviewFinancialPeriodInput,
+  CloseFinancialPeriodInput,
 } from "./types";
 
 type PageOptions = { page: number; perPage: number };
@@ -231,7 +232,7 @@ export function closeFinancialPeriod(
   token: string,
   lodgeId: string,
   periodId: string,
-  input: PreviewFinancialPeriodInput,
+  input: CloseFinancialPeriodInput,
   idempotencyKey: string,
 ): Promise<CloseFinancialPeriodResponse> {
   requireIds(periodId, idempotencyKey);

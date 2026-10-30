@@ -70,6 +70,7 @@ export type Expense = {
   payed: boolean;
   status: ExpenseStatus;
   programming_version: number;
+  updated_at: string;
   installments: ExpenseInstallment[];
 };
 
@@ -96,6 +97,7 @@ export type CreateExpenseCategoryInput = {
 };
 
 export type UpdateExpenseInput = {
+  expected_updated_at: string;
   label?: string;
   total_value?: number;
   parcels?: number;

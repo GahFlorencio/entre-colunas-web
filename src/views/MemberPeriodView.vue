@@ -139,7 +139,7 @@ async function exportPdf() {
           ><strong>{{ money(query.data.value.total_charges) }}</strong
           ><small>{{
             query.data.value.status === "open"
-              ? "Prévia oficial · sujeita a alterações até o fechamento"
+              ? "Prévia do período · sujeita a alterações até o fechamento"
               : "Valores preservados no fechamento"
           }}</small>
         </section>

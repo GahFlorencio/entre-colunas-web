@@ -126,31 +126,26 @@ const query = useQuery(
     }),
   () => [page.value, type.value, member.value, period.value],
 );
+// One navigable row per operation. Multi-account effects belong in its detail.
 const movementItems = computed<MovementListItem[]>(() =>
-  (query.data.value?.results ?? []).flatMap<MovementListItem>((o) => {
-    const group = date(o.created_at);
-    if (!o.entries.length)
-      return [
-        {
-          key: o.id,
-          description: o.description,
-          value: null,
-          direction: "neutral" as const,
-          group,
-          meta: group,
-          valueLabel: "Sem lançamentos",
-          to: `/operacoes/${o.id}`,
-        },
-      ];
-    return o.entries.map((entry) => ({
-      key: `${o.id}:${entry.id}`,
-      description: entry.description || o.description,
-      value: entry.value,
-      direction: entry.direction,
-      group,
-      meta: [group, entry.category_label].filter(Boolean).join(" - "),
-      to: `/operacoes/${o.id}`,
-    }));
+  (query.data.value?.results ?? []).map((operation) => {
+    const onlyEntry =
+      operation.entries.length === 1 ? operation.entries[0] : undefined;
+    return {
+      key: operation.id,
+      description: operation.description,
+      value: onlyEntry?.value ?? null,
+      direction: onlyEntry?.direction ?? "neutral",
+      group: date(operation.created_at),
+      meta: [
+        label(operation.type),
+        `${operation.entries.length} movimento(s)`,
+      ].join(" · "),
+      valueLabel: operation.entries.length
+        ? "Ver efeitos por conta"
+        : "Sem lançamentos",
+      to: `/operacoes/${operation.id}`,
+    };
   }),
 );
 function close() {
@@ -159,6 +154,11 @@ function close() {
 }
 </script>
 <template>
+  <nav class="auxiliary-cash-links" aria-label="Caixas">
+    <RouterLink to="/operacoes" aria-current="page">Loja</RouterLink
+    ><RouterLink to="/caixas/agape">Ágape</RouterLink
+    ><RouterLink to="/caixas/hospitalaria">Hospitalaria</RouterLink>
+  </nav>
   <header class="cash-header">
     <div>
       <h1><CashRegisterIcon :size="24" aria-hidden="true" />Caixa</h1>
@@ -218,7 +218,7 @@ function close() {
   <section class="section cash-history" aria-label="Histórico do caixa">
     <div class="section-head cash-history-head">
       <div>
-        <h2>Movimentações</h2>
+        <h2>Operações</h2>
         <p class="cash-date-context muted">Data de registro da operação</p>
       </div>
     </div>
@@ -230,6 +230,7 @@ function close() {
       ><div class="cash-movements"><MovementList :items="movementItems" /></div
     ></QueryState>
     <Pagination
+      item-label="operações"
       v-if="query.data.value"
       v-model:page="page"
       :total="query.data.value.total"
@@ -267,7 +268,9 @@ function close() {
                 'adjustment',
                 'opening_balance',
                 'reversal',
-                'expense',
+                'expense_registration',
+                'expense_correction',
+                'expense_cancellation',
                 'period_close',
               ]"
               :value="t"
@@ -315,7 +318,12 @@ function close() {
       </div>
     </form>
   </Modal>
-  <OperationForm v-if="showForm" @close="close" @saved="close" />
+  <OperationForm
+    :initial-type="String(route.query.tipo || '')"
+    v-if="showForm"
+    @close="close"
+    @saved="close"
+  />
 </template>
 
 <style scoped>
@@ -547,5 +555,26 @@ function close() {
   .cash-filters label:first-child {
     grid-column: auto;
   }
+}
+</style>
+
+<style scoped>
+.auxiliary-cash-links {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+.auxiliary-cash-links a {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  color: var(--muted);
+}
+.auxiliary-cash-links a[aria-current] {
+  color: var(--text);
+  border-bottom: 2px solid var(--gold);
+  font-weight: 600;
 }
 </style>

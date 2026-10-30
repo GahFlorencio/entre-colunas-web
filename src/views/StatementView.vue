@@ -207,12 +207,29 @@ async function exportPdf() {
         v-if="query.data.value && !query.error.value && !query.loading.value"
         class="row-end"
       >
-        <small class="muted">Saldo global da conta</small
+        <small class="muted">Saldo contábil global</small
         ><strong style="display: block; margin-top: 4px">{{
           money(query.data.value.balance)
         }}</strong>
       </div>
     </div>
+    <p
+      v-if="!embedded"
+      class="muted"
+      style="
+        font-size: 13px;
+        padding: 16px;
+        margin: 0;
+        border-bottom: 1px solid var(--border);
+      "
+    >
+      O saldo é global e não se limita às datas ou à página exibida.
+      {{
+        !memberId
+          ? "O saldo contábil inclui lançamentos de despesas, mesmo ainda não pagas. O caixa administrativo desconta despesas marcadas como pagas."
+          : ""
+      }}
+    </p>
     <QueryState
       :loading="query.loading.value"
       :error="query.error.value"
@@ -248,18 +265,6 @@ async function exportPdf() {
       :total="query.data.value.total"
     />
   </section>
-  <p
-    v-if="!embedded"
-    class="muted"
-    style="font-size: 12px; margin-bottom: 24px"
-  >
-    O saldo é global e não se limita às datas ou à página exibida.
-    {{
-      !memberId
-        ? "O saldo contábil pode diferir do caixa administrativo da visão geral."
-        : ""
-    }}
-  </p>
   <Modal
     v-if="filtersOpen"
     title="Filtrar extrato"
@@ -371,5 +376,19 @@ async function exportPdf() {
 .statement-filter-actions button {
   flex: 1 1 auto;
   min-height: 44px;
+}
+@media (max-height: 500px) {
+  .statement-filters {
+    padding-block: 12px;
+  }
+  .statement-filters :deep(.modal-head) {
+    margin-bottom: 12px;
+  }
+  .statement-date-fields {
+    gap: 12px;
+  }
+  .statement-filter-actions {
+    margin-top: 12px;
+  }
 }
 </style>

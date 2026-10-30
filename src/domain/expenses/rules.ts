@@ -93,6 +93,7 @@ type ComparableExpense = Pick<
   | "expense_type_slug"
   | "ratio_to_all"
   | "owner_expense_member_id"
+  | "updated_at"
 >;
 
 export function buildExpenseCorrection(
@@ -108,7 +109,10 @@ export function buildExpenseCorrection(
   const changedType =
     current.expense_type_id !== draft.typeId ||
     current.expense_type_slug !== draft.typeSlug;
-  const patch: UpdateExpenseInput = { justification: justification.trim() };
+  const patch: UpdateExpenseInput = {
+    justification: justification.trim(),
+    expected_updated_at: current.updated_at,
+  };
   if (current.label !== label) patch.label = label;
   if (Math.round(current.total_value * 100) !== draft.totalValueCents)
     patch.total_value = centsToAmount(draft.totalValueCents);
@@ -127,7 +131,7 @@ export function buildExpenseCorrection(
     (changedType || current.owner_expense_member_id !== draft.ownerMemberId)
   )
     patch.owner_expense_member_id = draft.ownerMemberId!.trim();
-  if (Object.keys(patch).length === 1)
+  if (Object.keys(patch).length === 2)
     throw new ExpenseRuleError({
       form: "Altere pelo menos um campo além da justificativa.",
     });

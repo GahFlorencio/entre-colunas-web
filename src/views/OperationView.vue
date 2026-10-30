@@ -6,6 +6,7 @@ import { token, lodgeId } from "@/lib/session";
 import { money, date, label, message } from "@/lib/format";
 import { useQuery } from "@/lib/query";
 import { getFinancialOperation } from "@/domain/financial-operations/api";
+import { requestLodgeFinancialResource } from "@/domain/lodge-financial/api";
 import { financialWrite, lodgePath } from "@/lib/financial-write";
 import QueryState from "@/components/QueryState.vue";
 import Modal from "@/components/Modal.vue";
@@ -18,6 +19,48 @@ const id = String(useRoute().params.id),
   success = ref("");
 const query = useQuery(() =>
   getFinancialOperation(token.value, lodgeId.value, id),
+);
+const accounts = useQuery(
+  async () => {
+    const selectedLodge = lodgeId.value,
+      session = token.value;
+    const owner = query.data.value?.member_id;
+    const references = [
+      {
+        suffix: "/financial/account",
+        type: "lodge",
+        name: "Conta da loja",
+        member: null,
+      },
+      ...(owner
+        ? [
+            {
+              suffix: `/member/${encodeURIComponent(owner)}/financial/account`,
+              type: "member",
+              name: "Conta do membro",
+              member: owner,
+            },
+          ]
+        : []),
+    ];
+    const names: Record<string, string> = {};
+    for (const reference of references) {
+      const account = (await requestLodgeFinancialResource(
+        session,
+        `/lodge/${encodeURIComponent(selectedLodge)}${reference.suffix}`,
+      )) as { id?: string; type?: string; member_id?: string | null };
+      if (
+        account.type !== reference.type ||
+        account.member_id !== reference.member
+      )
+        throw new Error(
+          "Não foi possível identificar as contas. Tente novamente.",
+        );
+      if (account.id) names[account.id] = reference.name;
+    }
+    return names;
+  },
+  () => query.data.value?.member_id,
 );
 async function reverse() {
   busy.value = true;
@@ -66,6 +109,13 @@ async function reverse() {
         </button>
       </div>
       <p v-if="success" class="success-message" role="status">{{ success }}</p>
+      <p v-if="accounts.error.value" class="notice">
+        Identificação das contas indisponível. Os movimentos abaixo preservam
+        seus identificadores.
+        <button class="text-button" @click="accounts.refresh">
+          Tentar identificar contas
+        </button>
+      </p>
       <section class="section">
         <div class="section-head">
           <h2>Movimentos da operação</h2>
@@ -84,7 +134,11 @@ async function reverse() {
           <div>
             <span class="row-title">{{ entry.description }}</span
             ><span class="row-meta"
-              >Conta #{{ entry.financial_account_id }} ·
+              >{{
+                accounts.data.value?.[entry.financial_account_id] ||
+                "Conta contábil"
+              }}
+              · #{{ entry.financial_account_id }} ·
               {{ entry.category_label || "Sem categoria" }} · Movimento #{{
                 entry.id
               }}</span
@@ -93,7 +147,8 @@ async function reverse() {
           <div class="row-end">
             <strong
               :class="entry.direction === 'credit' ? 'positive' : 'negative'"
-              >{{ money(entry.value) }}</strong
+              >{{ entry.direction === "credit" ? "+" : "−" }}
+              {{ money(entry.value) }}</strong
             ><span class="row-meta">{{ label(entry.direction) }}</span>
           </div>
         </div>

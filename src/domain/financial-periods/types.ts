@@ -86,10 +86,14 @@ export type FinancialPeriodPreview = {
   results: FinancialPeriodPreviewMember[];
   differences: FinancialPeriodDifference[];
   impediments: string[];
+  preview_version: string;
 };
 
 /** acrescimo is optional in the OpenAPI request schema and defaults to zero. */
 export type PreviewFinancialPeriodInput = { acrescimo?: number };
+export type CloseFinancialPeriodInput = PreviewFinancialPeriodInput & {
+  preview_version: string;
+};
 
 export type CloseFinancialPeriodResponse = {
   closed_period_id: FinancialPeriodId;

@@ -352,7 +352,9 @@ for (const width of [320, 390, 768]) {
       })),
     );
     expect(positions[1].y).toBe(positions[2].y);
-    expect(positions[0].width).toBeGreaterThan(positions[1].width);
+    if (width < 768)
+      expect(positions[0].width).toBeGreaterThan(positions[1].width);
+    else expect(positions[0].width).toBe(positions[1].width);
     const metadata = page.locator(".period-metadata");
     await expect(metadata).toBeVisible();
     await expect(metadata.locator("summary")).toHaveCount(0);

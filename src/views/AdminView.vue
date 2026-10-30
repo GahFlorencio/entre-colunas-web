@@ -390,6 +390,17 @@ async function save() {
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 24px;
+  padding: 6px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+}
+.admin-tabs button {
+  flex: 1 1 auto;
+}
+.admin-tabs button.secondary {
+  border-color: transparent;
+  background: transparent;
 }
 .admin-fields {
   border: 0;

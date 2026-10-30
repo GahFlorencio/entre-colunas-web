@@ -4,13 +4,14 @@ defineProps<{
   total: number;
   perPage?: number;
   loading?: boolean;
+  itemLabel?: string;
 }>();
 defineEmits<{ "update:page": [number] }>();
 </script>
 <template>
   <div class="pagination">
     <span
-      >{{ total }} registro(s) · Página {{ page }} de
+      >{{ total }} {{ itemLabel || "registro(s)" }} · Página {{ page }} de
       {{ Math.max(1, Math.ceil(total / (perPage || 20))) }}</span
     >
     <div>

@@ -194,6 +194,12 @@ test("member detail separates content and preserves date filter drafts on small 
       const box = (await dialog.boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(12);
       expect(Math.abs(box.x - (width - box.x - box.width))).toBeLessThan(2);
+      const apply = (await page
+        .getByRole("button", { name: "Aplicar filtros" })
+        .boundingBox())!;
+      expect(apply.y + apply.height).toBeLessThanOrEqual(
+        box.y + box.height - 8,
+      );
       const input = (await page.getByLabel("Data inicial").boundingBox())!;
       expect(input.width).toBeGreaterThan(box.width - 60);
       await page.getByLabel("Data inicial").fill("2026-01-01");

@@ -8,8 +8,8 @@ import {
   getFinancialPeriod,
   previewFinancialPeriod,
 } from "@/domain/financial-periods/api";
-import type { FinancialPeriodPreview } from "@/domain/financial-periods/types";
 import { financialWrite, lodgePath } from "@/lib/financial-write";
+import type { FinancialPeriodPreview } from "@/domain/financial-periods/types";
 import { readStatements, type PeriodStatement } from "@/lib/read";
 import QueryState from "@/components/QueryState.vue";
 import Pagination from "@/components/Pagination.vue";
@@ -27,6 +27,33 @@ const id = String(useRoute().params.id),
   confirmed = ref(false),
   page = ref(1),
   selected = ref<PeriodStatement | null>(null);
+const reviewSearch = ref("");
+const reviewMembers = computed(() => {
+  const normalize = (value: string) =>
+    value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLocaleLowerCase("pt-BR");
+  return (
+    preview.value?.results.filter((member) =>
+      normalize(member.member_name).includes(normalize(reviewSearch.value)),
+    ) ?? []
+  );
+});
+const differenceTotal = computed(
+  () =>
+    (preview.value?.differences.reduce(
+      (total, item) => total + Math.round(item.value * 100),
+      0,
+    ) ?? 0) / 100,
+);
+const chargesTotal = computed(
+  () =>
+    (preview.value?.results.reduce(
+      (total, member) => total + Math.round(member.new_charges * 100),
+      0,
+    ) ?? 0) / 100,
+);
 const query = useQuery(() =>
   getFinancialPeriod(token.value, lodgeId.value, id),
 );
@@ -122,7 +149,10 @@ async function close() {
     await financialWrite(
       lodgePath(`/financial/periods/${encodeURIComponent(id)}/close`),
       "POST",
-      { acrescimo: preview.value.acrescimo },
+      {
+        acrescimo: preview.value.acrescimo,
+        preview_version: preview.value.preview_version,
+      },
     );
     reviewing.value = false;
     preview.value = null;
@@ -274,11 +304,23 @@ async function close() {
       ><p v-if="preview.impediments.length" class="alert" role="alert">
         {{ preview.impediments.join(". ") }}
       </p>
-      <div
-        v-for="m in preview.results"
-        :key="m.member_id"
-        class="preview-member"
-      >
+      <div class="review-summary">
+        <strong
+          >{{ preview.results.length }} membros · {{ money(chargesTotal) }} em
+          novas cobranças</strong
+        >
+        <p>Diferença de rateio não cobrada: {{ money(differenceTotal) }}.</p>
+      </div>
+      <label
+        >Buscar membro na revisão<input
+          v-model="reviewSearch"
+          type="search"
+          placeholder="Nome do membro"
+      /></label>
+      <p v-if="!reviewMembers.length" class="muted">
+        Nenhum membro encontrado nesta revisão.
+      </p>
+      <div v-for="m in reviewMembers" :key="m.member_id" class="preview-member">
         <strong>{{ m.member_name }}</strong
         ><span class="row-meta"
           >Saldo atual {{ money(m.current_balance) }} · Novas cobranças
@@ -295,8 +337,21 @@ async function close() {
         </details>
       </div>
       <p class="muted" style="font-size: 12px">
-        Diferenças de rateio: {{ preview.differences.length }} registro(s).
+        Diferenças de rateio: {{ money(differenceTotal) }} não cobrados ·
+        {{ preview.differences.length }} registro(s).
       </p>
+      <details v-if="preview.differences.length">
+        <summary>Ver diferenças de rateio</summary>
+        <p
+          v-for="item in preview.differences"
+          :key="`${item.expense_id}:${item.installment_number}`"
+          class="row-meta"
+        >
+          Despesa #{{ item.expense_id }} · parcela
+          {{ item.installment_number }} · divisor {{ item.divisor }} ·
+          {{ money(item.value) }} não cobrados
+        </p>
+      </details>
       <label class="checkbox"
         ><input
           v-model="confirmed"
@@ -365,5 +420,15 @@ async function close() {
 }
 .period-metadata dt {
   font-size: 11px;
+}
+.review-summary {
+  margin: 12px 0;
+  padding: 12px;
+  background: var(--surface-subtle);
+  border-radius: var(--radius-control);
+  font-size: 14px;
+}
+.review-summary p {
+  margin: 6px 0 0;
 }
 </style>

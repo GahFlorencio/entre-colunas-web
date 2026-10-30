@@ -119,17 +119,7 @@ test("payment recency is shared by list and member detail with exact ranges and 
   });
   await page.goto("/membros");
   await expect(page.locator(".member-row .payment-recency")).toHaveCount(9);
-  const expected = [
-    "green",
-    "green",
-    "green",
-    "yellow",
-    "yellow",
-    "orange",
-    "orange",
-    "red",
-    "neutral",
-  ];
+  const expected = days.map(() => "neutral");
   for (const [index, tone] of expected.entries()) {
     const badge = page.locator(".member-row .payment-recency").nth(index);
     await expect(badge).toHaveClass(new RegExp(tone));
@@ -147,16 +137,16 @@ test("payment recency is shared by list and member detail with exact ranges and 
   ).toHaveText("(11) 99999-9999");
   await expect(
     page.locator(".member-row").first().locator(".member-current strong"),
-  ).toHaveText(/-R\$.*1\.234\.567,89/);
+  ).toHaveText(/R\$.*1\.234\.567,89/);
   await expect(
-    page.locator(".member-row").nth(1).locator(".member-payable strong"),
-  ).toHaveText(/R\$.*0,00/);
+    page.locator(".member-row").nth(1).locator(".member-current strong"),
+  ).toHaveText(/R\$.*500,00/);
 
   for (const path of ["/membros", "/membros/21"]) {
     await page.goto(path);
-    await expect(page.locator(".payment-recency.green").first()).toContainText(
-      "Sem pagamento há 0 dias",
-    );
+    await expect(
+      page.locator(".payment-recency.neutral").first(),
+    ).toContainText("Sem pagamento há 0 dias");
     for (const theme of ["light", "dark"]) {
       await page.evaluate((theme) => {
         document.documentElement.dataset.theme = theme;

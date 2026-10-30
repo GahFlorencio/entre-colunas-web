@@ -12,6 +12,18 @@ export const date = (value?: string | null) =>
   value && !Number.isNaN(Date.parse(value))
     ? dateFormatter.format(new Date(value))
     : "—";
+/** Calendar dates (e.g. admission) are not instants; retain the recorded day. */
+export function calendarDate(value?: string | null) {
+  const day = value?.slice(0, 10);
+  if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return "—";
+  const parsed = new Date(`${day}T12:00:00Z`);
+  if (
+    !Number.isFinite(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 10) !== day
+  )
+    return "—";
+  return `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}`;
+}
 export const initials = (value: string) =>
   value
     .trim()
@@ -31,12 +43,19 @@ export const labels: Record<string, string> = {
   cancelled: "Cancelada",
   partially_cancelled: "Cancelada parcialmente",
   member_payment: "Pagamento de membro",
+  cash_transfer: "Transferência entre caixas",
   lodge_income: "Entrada da loja",
   income: "Entrada",
   adjustment: "Ajuste",
   opening_balance: "Saldo inicial",
   reversal: "Estorno",
   expense: "Despesa",
+  expense_registration: "Registro de despesa",
+  expense_correction: "Correção de despesa",
+  expense_cancellation: "Cancelamento de despesa",
+  rateio: "Rateio",
+  individual: "Individual",
+  geral: "Geral",
   period_close: "Fechamento de período",
   credit: "Crédito",
   debit: "Débito",

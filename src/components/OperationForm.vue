@@ -7,12 +7,13 @@ import { useQuery } from "@/lib/query";
 
 import { financialWrite, lodgePath } from "@/lib/financial-write";
 import Modal from "./Modal.vue";
-const props = defineProps<{ memberId?: string }>();
+const props = defineProps<{ memberId?: string; initialType?: string }>();
 const emit = defineEmits<{ close: []; saved: [] }>();
 const busy = ref(false),
   error = ref("");
 const form = reactive({
-  type: props.memberId ? "payment" : "income",
+  type:
+    props.memberId || props.initialType === "payment" ? "payment" : "income",
   member_id: props.memberId || "",
   value: "",
   description: "",

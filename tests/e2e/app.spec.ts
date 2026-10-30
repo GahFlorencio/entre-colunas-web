@@ -46,6 +46,7 @@ const expense = {
   payed: false,
   status: "active",
   programming_version: 1,
+  updated_at: "2026-10-29T12:00:00.000Z",
   installments: [
     {
       id: "1",
@@ -158,9 +159,9 @@ async function mock(
       });
     if (path.endsWith("/financial/account"))
       return send({
-        id: "51",
-        type: "member",
-        member_id: member.id,
+        id: path.includes("/member/") ? "52" : "51",
+        type: path.includes("/member/") ? "member" : "lodge",
+        member_id: path.includes("/member/") ? member.id : null,
         balance: 150,
       });
     if (path.endsWith("/financial/periods/preview"))
@@ -168,6 +169,8 @@ async function mock(
         financial_period_id: "81",
         sequence: 3,
         acrescimo: 0,
+        preview_version:
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         results: [
           {
             member_id: member.id,
@@ -459,7 +462,11 @@ test("closing a period requires preview and explicit review", async ({
   await page
     .getByRole("button", { name: "Fechar período", exact: true })
     .click();
-  expect((await request).postDataJSON()).toEqual({ acrescimo: 0 });
+  expect((await request).postDataJSON()).toEqual({
+    acrescimo: 0,
+    preview_version:
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  });
 });
 
 test("session expiry clears private UI and returns to login", async ({
@@ -902,25 +909,20 @@ test("Caixa ledger preserves entry values, directions and operation ordering", a
   await navigate(page, "/operacoes");
   const history = page.getByRole("region", { name: "Histórico do caixa" });
   const rows = history.locator(".ledger-entry");
-  await expect(rows).toHaveCount(4);
-  await expect(rows.nth(0)).toContainText("+ R$");
-  await expect(rows.nth(0)).toContainText("9.876.543,25");
-  await expect(rows.nth(0)).toContainText("Crédito");
-  await expect(rows.nth(1)).toContainText("− R$");
-  await expect(rows.nth(1)).toContainText("Débito");
-  await expect(rows.nth(0).locator(".ledger-meta")).toHaveText(
-    "20/10/2026 - Contribuição",
-  );
-  await expect(rows.nth(1).locator(".ledger-meta")).toHaveText("20/10/2026");
-  await expect(rows.nth(2)).toContainText("Sem lançamentos");
-  await expect(rows.nth(2)).not.toContainText("0,00");
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText("2 movimento(s)");
+  await expect(rows.nth(0)).toContainText("Ver efeitos por conta");
+  await expect(rows.nth(0)).not.toContainText("19.753.086,50");
+  await expect(rows.nth(1)).toContainText("Sem lançamentos");
+  await expect(rows.nth(1)).not.toContainText("0,00");
+  await expect(rows.nth(2)).toContainText("+ R$");
   await expect(history.locator(".ledger-day h3")).toHaveText([
     "20/10/2026",
     "19/10/2026",
     "20/10/2026",
   ]);
-  await expect(history.locator(".pagination")).toContainText("3 registro(s)");
-  await expect(rows.nth(1)).toHaveAttribute("href", "/operacoes/701");
+  await expect(history.locator(".pagination")).toContainText("3 operações");
+  await expect(rows.nth(0)).toHaveAttribute("href", "/operacoes/701");
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 844 });
     for (const theme of ["light", "dark"]) {
@@ -952,6 +954,7 @@ test("Caixa ledger preserves entry values, directions and operation ordering", a
   await expect(rows.first()).toBeFocused();
   await rows.first().press("Enter");
   await expect(page).toHaveURL(/operacoes\/701$/);
+  await expect(page.getByText(/Conta da loja · #51/)).toBeVisible();
 });
 
 test("lodge statement uses date and category ledger subtitles", async ({
@@ -1194,12 +1197,24 @@ test("mobile navigation keeps destinations reachable and content clear of the bo
       await page.setViewportSize({ width, height: 420 });
       await navigate(page, "/");
       const nav = page.getByRole("navigation", { name: "Navegação rápida" });
-      await expect(nav.getByRole("link")).toHaveCount(5);
+      await expect(nav.getByRole("link")).toHaveCount(4);
       for (const link of await nav.getByRole("link").all()) {
         const bounds = (await link.boundingBox())!;
         expect(bounds.width).toBeGreaterThanOrEqual(44);
         expect(bounds.height).toBeGreaterThanOrEqual(44);
+        const caption = (await link.locator("span").boundingBox())!;
+        expect(caption.x).toBeGreaterThanOrEqual(bounds.x);
+        expect(caption.x + caption.width).toBeLessThanOrEqual(
+          bounds.x + bounds.width,
+        );
       }
+      const more = nav.getByRole("button", { name: "Mais opções" });
+      await more.click();
+      await expect(
+        page.getByRole("dialog", { name: "Menu principal" }),
+      ).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(more).toBeFocused();
       const members = nav.getByRole("link", { name: "Membros", exact: true });
       await members.focus();
       await page.keyboard.press("Enter");
@@ -1211,6 +1226,14 @@ test("mobile navigation keeps destinations reachable and content clear of the bo
       const bottomBar = (await nav.boundingBox())!;
       expect(footer.y + footer.height).toBeLessThanOrEqual(bottomBar.y);
       await page.getByRole("button", { name: "Abrir menu" }).click();
+      const menu = page.getByRole("dialog", { name: "Menu principal" });
+      await expect(menu).toBeVisible();
+      const controls = menu.locator("a[href], button:not([disabled])");
+      await controls.last().focus();
+      await page.keyboard.press("Tab");
+      await expect(controls.first()).toBeFocused();
+      await page.keyboard.press("Shift+Tab");
+      await expect(controls.last()).toBeFocused();
       expect(
         await page
           .locator(".mobile-nav")
@@ -1277,4 +1300,100 @@ test("login fields stay usable in both themes and narrow viewports", async ({
       });
     }
   }
+});
+
+test.describe("audit regressions", () => {
+  test.use({ timezoneId: "America/Sao_Paulo" });
+  test("expense correction sends its revision and keeps the form on conflict", async ({
+    page,
+  }) => {
+    await mock(page);
+    let submitted: Record<string, unknown> | undefined;
+    let detailReads = 0;
+    await page.route("**/expense/501", async (route) => {
+      if (route.request().method() === "PATCH") {
+        submitted = route.request().postDataJSON() as Record<string, unknown>;
+        return route.fulfill({
+          status: 409,
+          json: {
+            error:
+              "Esta despesa foi alterada por outra pessoa. Atualize os dados e revise a correção.",
+          },
+        });
+      }
+      if (route.request().method() === "GET" && detailReads++ > 0)
+        return route.fulfill({
+          json: {
+            ...expense,
+            label: "Atualizado por outro operador",
+            updated_at: "2026-10-29T12:01:00.000Z",
+          },
+        });
+      return route.fallback();
+    });
+    await login(page);
+    await navigate(page, "/despesas/501");
+    await page.getByRole("button", { name: "Corrigir despesa" }).click();
+    await page.getByLabel("Descrição", { exact: true }).fill("Nome revisado");
+    await page
+      .getByLabel("Justificativa da correção")
+      .fill("A descrição foi revisada.");
+    await page.getByRole("button", { name: "Salvar despesa" }).click();
+    await expect(page.getByRole("alert")).toContainText(
+      "alterada por outra pessoa",
+    );
+    expect(submitted?.expected_updated_at).toBe(expense.updated_at);
+    expect(submitted?.justification).toBe("A descrição foi revisada.");
+    await expect(
+      page.getByRole("dialog", { name: "Corrigir despesa" }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Descartar correção e atualizar" })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Atualizado por outro operador" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("dialog", { name: "Corrigir despesa" }),
+    ).toHaveCount(0);
+  });
+
+  test("admission day agrees with edit and cancelled expense has no payment action", async ({
+    page,
+  }) => {
+    await mock(page);
+    await page.route(`**/member/${member.id}`, (route) =>
+      route.fulfill({
+        json: { ...member, lodge_beggin: "2026-09-01T00:00:00.000Z" },
+      }),
+    );
+    await page.route("**/expense/501", (route) =>
+      route.fulfill({
+        json: {
+          ...expense,
+          status: "cancelled",
+          installments: expense.installments.map((item) => ({
+            ...item,
+            status: "cancelled",
+          })),
+        },
+      }),
+    );
+    await login(page);
+    await navigate(page, `/membros/${member.id}`);
+    await expect(page.getByText("01/09/2026", { exact: true })).toBeVisible();
+    await page.getByLabel("Ações do membro").click();
+    await page.getByRole("button", { name: "Editar", exact: true }).click();
+    await expect(page.locator('dialog input[type="date"]')).toHaveValue(
+      "2026-09-01",
+    );
+    await page.keyboard.press("Escape");
+    await navigate(page, "/despesas/501");
+    await expect(
+      page.getByRole("button", { name: "Marcar como paga", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText("Não se aplica · cancelada", { exact: true }),
+    ).toBeVisible();
+  });
 });
